@@ -3,6 +3,8 @@
 // files in fixtures/, and is styled by the shared css/ stylesheets.
 package canon
 
+import "github.com/a-h/templ"
+
 // ThemeMode is a Theme's color mode.
 type ThemeMode string
 
@@ -26,7 +28,7 @@ type ThemeProps struct {
 	Attrs []Attr
 }
 
-// Attr is one HTML attribute. Order is kept so Go and Rust render identical markup.
+// Attr is one HTML attribute, e.g. a Datastar binding {"data-bind:email", ""}. Order is kept so Go and Rust render identical markup.
 type Attr struct{ Name, Value string }
 
 func (p ThemeProps) name() string {
@@ -44,3 +46,20 @@ func (m ThemeMode) DataTheme() string {
 	}
 	return ""
 }
+
+// Theme scopes an Astryx theme and color mode to its children.
+// Port of Astryx `Theme` (packages/core/src/theme/Theme.tsx), MIT, Meta Platforms, Inc.
+// For the page root, put the same data-astryx-theme / data-theme attributes on <html>
+// so browser chrome and top-layer overlays follow it.
+func Theme(p ThemeProps) templ.Component {
+	return withChildren(func(children templ.Component) templ.Component {
+		return el("div", newAttrs().
+			set("class", "astryx-theme").
+			set("data-astryx-theme", p.name()).
+			opt("data-theme", p.Mode.DataTheme()).
+			extra(p.Attrs), children)
+	})
+}
+
+// A builds an Attr, e.g. canon.A("data-bind:email", "").
+func A(name, value string) Attr { return Attr{Name: name, Value: value} }

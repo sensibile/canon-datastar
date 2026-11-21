@@ -1,0 +1,111 @@
+package main
+
+import "github.com/sensibile/canon-datastar/go/canon"
+
+templ componentsIndex(theme string, mode canon.ThemeMode) {
+	@layout("canon-datastar · Components", theme, mode) {
+		@componentsPage()
+	}
+}
+
+templ demoSection(title string) {
+	<section class="demo-section">
+		<h2>{ title }</h2>
+		<div class="demo-row">
+			{ children... }
+		</div>
+	</section>
+}
+
+templ componentsPage() {
+	<h1>Components</h1>
+	<p class="demo-lead">Server-rendered with Go; interactivity through Datastar signals and SSE.</p>
+	<div data-signals="{saving: false, saved: 0, name: '', agree: false, notify: true, size: 'md'}">
+		@demoSection("Button") {
+			@canon.Button(canon.ButtonProps{Label: "Primary", Variant: "primary"})
+			@canon.Button(canon.ButtonProps{Label: "Secondary"})
+			@canon.Button(canon.ButtonProps{Label: "Ghost", Variant: "ghost"})
+			@canon.Button(canon.ButtonProps{Label: "Destructive", Variant: "destructive"})
+			@canon.Button(canon.ButtonProps{Label: "With icon", Icon: "check", EndContent: canon.Badge(canon.BadgeProps{Label: "3"})})
+			@canon.IconButton(canon.ButtonProps{Label: "Close", Icon: "close", Variant: "ghost"})
+			@canon.Button(canon.ButtonProps{Label: "Disabled", IsDisabled: true})
+			@canon.Button(canon.ButtonProps{Label: "Loading", IsLoading: true})
+			@canon.Button(canon.ButtonProps{Label: "Link", Href: "#", Elevation: "low"})
+		}
+		@demoSection("Button sizes") {
+			@canon.Button(canon.ButtonProps{Label: "Small", Size: "sm", Variant: "primary"})
+			@canon.Button(canon.ButtonProps{Label: "Medium", Variant: "primary"})
+			@canon.Button(canon.ButtonProps{Label: "Large", Size: "lg", Variant: "primary"})
+		}
+		@demoSection("Datastar: loading over SSE") {
+			@canon.Button(canon.ButtonProps{Label: "Save", Variant: "primary", Icon: "upload", Attrs: []canon.Attr{
+				canon.A("data-attr:aria-busy", "$saving && 'true'"),
+				canon.A("data-on:click", "$saving = true; @post('/demo/save')"),
+			}})
+			@canon.Text(canon.TextProps{Type: "supporting", Attrs: []canon.Attr{canon.A("data-text", "'Saved ' + $saved + ' times'")}}) {
+				Saved 0 times
+			}
+		}
+		@demoSection("Badge") {
+			for _, v := range []string{"neutral", "info", "success", "warning", "error", "blue", "green", "purple", "orange", "teal"} {
+				@canon.Badge(canon.BadgeProps{Label: v, Variant: v})
+			}
+			@canon.Badge(canon.BadgeProps{Label: "Done", Variant: "success", Icon: "check"})
+		}
+		@demoSection("Text and Heading") {
+			@canon.VStack(canon.StackProps{Gap: "2"}) {
+				@canon.Heading(canon.HeadingProps{Level: 2}) {
+					Heading level 2
+				}
+				@canon.Heading(canon.HeadingProps{Level: 3, Type: "display-3"}) {
+					Display 3
+				}
+				@canon.Text(canon.TextProps{Type: "large"}) {
+					Large text
+				}
+				@canon.Text(canon.TextProps{Type: "supporting"}) {
+					Supporting text in secondary color
+				}
+				@canon.Text(canon.TextProps{Type: "code"}) {
+					code text
+				}
+				@canon.Text(canon.TextProps{MaxLines: 1, Attrs: []canon.Attr{canon.A("style", "width: 240px")}}) {
+					A long line that gets truncated with an ellipsis when it runs out of room
+				}
+				@canon.Link(canon.LinkProps{Href: "https://astryx.atmeta.com", IsExternalLink: true}) {
+					Astryx docs
+				}
+			}
+		}
+		@demoSection("Icon") {
+			for _, n := range []string{"check", "close", "chevronDown", "search", "calendar", "clock", "info", "warning", "error", "success", "externalLink", "copy"} {
+				@canon.Icon(canon.IconProps{Name: n, Size: "lg", Label: n})
+			}
+		}
+		@demoSection("Spinner") {
+			@canon.Spinner(canon.SpinnerProps{Size: "sm"})
+			@canon.Spinner(canon.SpinnerProps{})
+			@canon.Spinner(canon.SpinnerProps{Size: "lg", Shade: "subtle"})
+			@canon.Spinner(canon.SpinnerProps{Size: "xl", Label: "Loading"})
+		}
+		@demoSection("Divider") {
+			@canon.VStack(canon.StackProps{Gap: "4", Width: "100%"}) {
+				@canon.Divider(canon.DividerProps{})
+				@canon.Divider(canon.DividerProps{Label: "or", Variant: "strong"})
+			}
+		}
+		@demoSection("Form controls (data-bind)") {
+			@canon.VStack(canon.StackProps{Gap: "4", Width: "360px"}) {
+				@canon.TextInput(canon.TextInputProps{ID: "name", Label: "Name", Description: "Bound to $name", Placeholder: "Type here", InputAttrs: []canon.Attr{canon.A("data-bind:name", "")}})
+				@canon.TextInput(canon.TextInputProps{ID: "email", Label: "Email", StartIcon: "search", IsRequired: true, Status: &canon.FieldStatus{Type: "error", Message: "Enter a valid email"}})
+				@canon.TextInput(canon.TextInputProps{ID: "ro", Label: "Read only", Value: "Fixed value", IsReadOnly: true, Size: "sm"})
+				@canon.CheckboxInput(canon.CheckboxInputProps{ID: "agree", Label: "I agree", Description: "Bound to $agree", InputAttrs: []canon.Attr{canon.A("data-bind:agree", "")}})
+				@canon.CheckboxInput(canon.CheckboxInputProps{ID: "some", Label: "Some selected", IsIndeterminate: true})
+				@canon.CheckboxInput(canon.CheckboxInputProps{ID: "off", Label: "Disabled", IsDisabled: true, Checked: true})
+				@canon.Switch(canon.SwitchProps{ID: "notify", Label: "Notifications", Checked: true, InputAttrs: []canon.Attr{canon.A("data-bind:notify", "")}})
+				@canon.Switch(canon.SwitchProps{ID: "spread", Label: "Spread label", LabelPosition: "start", LabelSpacing: "spread", Size: "sm"})
+				@canon.Text(canon.TextProps{Type: "supporting", Attrs: []canon.Attr{canon.A("data-text", "JSON.stringify({name: $name, agree: $agree, notify: $notify})")}})
+			}
+		}
+	</div>
+}

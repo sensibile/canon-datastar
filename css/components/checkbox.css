@@ -1,0 +1,95 @@
+/* CheckboxInput. Port of Astryx packages/core/src/CheckboxInput + Indicator (MIT, Meta Platforms, Inc.).
+ * The indicator follows the native input's :checked / :indeterminate state, so it works with
+ * plain forms and with Datastar's data-bind on the input.
+ * Markup: <div class="astryx-checkbox-input" data-checkbox-size>
+ *   <div class="astryx-checkbox-row" [data-label-hidden] [data-disabled]>
+ *     <div class="astryx-checkbox-control"><input type="checkbox" data-size><span class="astryx-checkbox-indicator" data-size>…
+ *     <div class="astryx-checkbox-label-wrapper"> FieldLabel */
+@layer astryx-base {
+  .astryx-checkbox-row { display: flex; align-items: center; gap: var(--_checkbox-input-gap, var(--spacing-2)); }
+  .astryx-checkbox-row[data-label-hidden] { gap: 0; }
+  .astryx-checkbox-label-wrapper { display: flex; flex-direction: column; }
+  .astryx-checkbox-control {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    isolation: isolate;
+  }
+  .astryx-checkbox-control > input {
+    position: absolute;
+    top: 50%;
+    inset-inline-start: 50%;
+    translate: -50% -50%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+  }
+  [dir='rtl'] .astryx-checkbox-control > input { translate: 50% -50%; }
+  .astryx-checkbox-control > input:disabled { cursor: default; }
+  @media (pointer: coarse) {
+    .astryx-checkbox-control > input { min-inline-size: 24px; min-block-size: 24px; }
+  }
+  .astryx-checkbox-control > [data-size='sm'] { width: 20px; height: 20px; }
+  .astryx-checkbox-control > [data-size='md'] { width: 24px; height: 24px; }
+  .astryx-checkbox-indicator {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: var(--border-width) solid var(--color-border-emphasized);
+    border-radius: var(--radius-inner);
+    color: var(--color-accent);
+    background-color: var(--color-background-surface);
+    transition-property: background-color, border-color;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-checkbox-indicator { transition-duration: 0s; }
+  }
+  :is(:checked, :indeterminate) + .astryx-checkbox-indicator {
+    color: var(--color-on-accent);
+    border-color: var(--color-accent);
+    background-color: var(--color-accent);
+  }
+  @media (hover: hover) {
+    .astryx-checkbox-row:not([data-disabled]):hover :not(:checked, :indeterminate) + .astryx-checkbox-indicator {
+      border-color: color-mix(in srgb, var(--color-border-emphasized), var(--color-tint-hover) 20%);
+      background-color: color-mix(in srgb, var(--color-background-surface), var(--color-tint-hover) 5%);
+    }
+    .astryx-checkbox-row:not([data-disabled]):hover :is(:checked, :indeterminate) + .astryx-checkbox-indicator {
+      border-color: color-mix(in srgb, var(--color-accent), var(--color-tint-hover) 15%);
+      background-color: color-mix(in srgb, var(--color-accent), var(--color-tint-hover) 15%);
+    }
+  }
+  .astryx-checkbox-row:not([data-disabled]):active .astryx-checkbox-indicator::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-inner);
+    pointer-events: none;
+    background: var(--color-overlay-pressed);
+  }
+  :disabled + .astryx-checkbox-indicator { opacity: 0.5; border-color: var(--color-border); }
+  :disabled:not(:checked, :indeterminate) + .astryx-checkbox-indicator { background-color: var(--color-background-muted); }
+  .astryx-checkbox-control:has(input:focus-visible) .astryx-checkbox-indicator {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: var(--focus-outline-offset);
+  }
+  .astryx-checkbox-indicator-check { display: none; color: var(--color-on-accent); }
+  .astryx-checkbox-indicator-dash { display: none; height: 2px; background-color: var(--color-on-accent); border-radius: var(--radius-full); }
+  :checked:not(:indeterminate) + .astryx-checkbox-indicator > .astryx-checkbox-indicator-check,
+  :indeterminate + .astryx-checkbox-indicator > .astryx-checkbox-indicator-dash { display: block; }
+  .astryx-checkbox-indicator[data-size='sm'] > .astryx-checkbox-indicator-check { width: calc((100% + 2 * var(--border-width)) * 12 / 20); height: calc((100% + 2 * var(--border-width)) * 12 / 20); }
+  .astryx-checkbox-indicator[data-size='md'] > .astryx-checkbox-indicator-check { width: calc((100% + 2 * var(--border-width)) * 14 / 24); height: calc((100% + 2 * var(--border-width)) * 14 / 24); }
+  .astryx-checkbox-indicator-dash { width: calc((100% + 2 * var(--border-width)) / 2); }
+  @media (forced-colors: active) {
+    .astryx-checkbox-indicator-check { color: CanvasText; }
+    .astryx-checkbox-indicator-dash { background-color: CanvasText; }
+  }
+}

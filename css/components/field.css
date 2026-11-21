@@ -1,0 +1,109 @@
+/* Field, FieldLabel, FieldStatus. Port of Astryx packages/core/src/Field, FieldStatus
+ * (MIT, Meta Platforms, Inc.).
+ * Markup: <div class="astryx-field" [data-label-hidden]>
+ *   <label class="astryx-field-label" for>… or a .astryx-field-label-group with a description
+ *   <div class="astryx-field-control"> control + <div class="astryx-field-status" data-type data-variant="attached"> */
+@layer astryx-base {
+  .astryx-field { display: flex; flex-direction: column; isolation: isolate; min-width: 0; }
+  .astryx-field:not([data-label-hidden]) { gap: var(--spacing-1); }
+  .astryx-field-control {
+    display: flex;
+    flex-direction: column;
+    isolation: isolate;
+    --_field-status-overlap: calc(var(--size-element-md) / 2);
+  }
+  .astryx-field-control:has(> [data-size='sm']) { --_field-status-overlap: calc(var(--size-element-sm) / 2); }
+  .astryx-field-control:has(> [data-size='lg']) { --_field-status-overlap: calc(var(--size-element-lg) / 2); }
+
+  .astryx-field-label-group { display: flex; flex-direction: column; }
+  .astryx-field-label-group[data-label-hidden] { display: contents; }
+  .astryx-field-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    font-family: var(--font-family-body);
+    font-size: var(--text-label-size);
+    line-height: var(--text-label-leading);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    cursor: pointer;
+  }
+  span.astryx-field-label { cursor: default; }
+  .astryx-field-label[data-disabled] { color: var(--color-text-disabled); cursor: default; }
+  .astryx-field-optionality {
+    font-weight: var(--font-weight-normal);
+    font-size: var(--text-supporting-size);
+    line-height: var(--text-supporting-leading);
+    color: var(--color-text-secondary);
+  }
+  .astryx-field-description {
+    font-family: var(--font-family-body);
+    font-size: var(--text-supporting-size);
+    line-height: var(--text-supporting-leading);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-secondary);
+  }
+  :is(.astryx-field-label, .astryx-field-description)[data-label-hidden] {
+    border-style: none;
+    clip: rect(0, 0, 0, 0);
+    height: 1px;
+    inset-inline-start: 0;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    user-select: none;
+    white-space: nowrap;
+    width: 1px;
+  }
+
+  .astryx-field-status {
+    --_overlap: var(--_field-status-overlap, var(--spacing-1-5));
+    font-family: var(--font-family-body);
+    font-size: var(--text-supporting-size);
+    line-height: var(--text-supporting-leading);
+    overflow-wrap: anywhere;
+    --_astryx-text-overflow-wrap: anywhere;
+    animation: astryx-slide-down var(--duration-fast) var(--ease-entrance);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-field-status { animation: none; }
+  }
+  @media (forced-colors: active) {
+    .astryx-field-status { outline: 1px solid CanvasText; outline-offset: -1px; }
+  }
+  .astryx-field-status[data-variant='attached'] {
+    position: relative;
+    z-index: -1;
+    margin-top: calc(-1 * var(--_overlap));
+    padding-block-start: calc(var(--_overlap) + var(--spacing-2));
+    padding-block-end: var(--spacing-2);
+    padding-inline: var(--spacing-2);
+    border-end-start-radius: var(--radius-element);
+    border-end-end-radius: var(--radius-element);
+    pointer-events: none;
+  }
+  .astryx-field-status[data-variant='detached'] {
+    margin-top: var(--spacing-1);
+    padding-block: var(--spacing-2);
+    padding-inline: var(--spacing-2);
+    border-radius: var(--radius-element);
+  }
+  .astryx-field-status-content { display: flex; align-items: flex-start; gap: var(--spacing-1); }
+  .astryx-field-status-icon {
+    display: inline-flex;
+    align-items: center;
+    height: calc(var(--text-supporting-size) * var(--text-supporting-leading));
+    flex-shrink: 0;
+  }
+  .astryx-field-status[data-type='warning'] { background-color: var(--color-warning-muted); color: var(--color-on-warning-muted); }
+  .astryx-field-status[data-type='error'] { background-color: var(--color-error-muted); color: var(--color-on-error-muted); }
+  .astryx-field-status[data-type='success'] { background-color: var(--color-success-muted); color: var(--color-on-success-muted); }
+}
+
+@keyframes astryx-slide-down {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}

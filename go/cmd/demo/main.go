@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"time"
+
+	"github.com/starfederation/datastar-go/datastar"
 
 	canondatastar "github.com/sensibile/canon-datastar"
 	"github.com/sensibile/canon-datastar/go/canon"
@@ -19,6 +22,28 @@ func main() {
 		theme, mode := themeFromQuery(r)
 		page := index(theme, mode)
 		if err := page.Render(r.Context(), w); err != nil {
+			log.Print(err)
+		}
+	})
+	mux.HandleFunc("GET /components", func(w http.ResponseWriter, r *http.Request) {
+		theme, mode := themeFromQuery(r)
+		if err := componentsIndex(theme, mode).Render(r.Context(), w); err != nil {
+			log.Print(err)
+		}
+	})
+	// Datastar demo: the button sets $saving, posts its signals here, and this SSE response
+	// patches $saving back to false (clearing aria-busy) after a short delay.
+	mux.HandleFunc("POST /demo/save", func(w http.ResponseWriter, r *http.Request) {
+		var signals struct {
+			Saved int `json:"saved"`
+		}
+		if err := datastar.ReadSignals(r, &signals); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		sse := datastar.NewSSE(w, r)
+		time.Sleep(1200 * time.Millisecond)
+		if err := sse.MarshalAndPatchSignals(map[string]any{"saving": false, "saved": signals.Saved + 1}); err != nil {
 			log.Print(err)
 		}
 	})

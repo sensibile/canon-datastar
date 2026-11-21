@@ -16,6 +16,10 @@ jobs:
         run: |
           go run github.com/a-h/templ/cmd/templ@v0.3.1118 generate
           git diff --exit-code
+      - name: generated icon tables are up to date
+        run: |
+          node scripts/gen-icons.mjs
+          git diff --exit-code
       - run: go vet ./...
       - run: go test ./...
   rust:
