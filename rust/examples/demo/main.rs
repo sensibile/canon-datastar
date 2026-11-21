@@ -1,0 +1,219 @@
+//! canon-datastar gallery: `cargo run --example demo` (from rust/). Mirrors go/cmd/demo.
+
+use axum::{Router, extract::Query, routing::get};
+use canon_datastar::{THEMES, ThemeMode, ThemeProps, theme};
+use maud::{DOCTYPE, Markup, html};
+use serde::Deserialize;
+use std::path::Path;
+use tower_http::services::ServeDir;
+
+/// Datastar expression shared by <html> and Theme: drop data-theme for "system".
+const MODE_EXPR: &str = "$mode === 'system' ? null : $mode";
+
+const COLOR_GROUPS: &[(&str, &[&str])] = &[
+    (
+        "Background",
+        &[
+            "--color-background-body",
+            "--color-background-surface",
+            "--color-background-card",
+            "--color-background-muted",
+            "--color-background-popover",
+            "--color-background-inverted",
+        ],
+    ),
+    (
+        "Text",
+        &[
+            "--color-text-primary",
+            "--color-text-secondary",
+            "--color-text-disabled",
+            "--color-text-accent",
+            "--color-text-error",
+            "--color-text-success",
+            "--color-text-warning",
+            "--color-text-info",
+        ],
+    ),
+    (
+        "Accent",
+        &[
+            "--color-accent",
+            "--color-accent-muted",
+            "--color-on-accent",
+        ],
+    ),
+    (
+        "Status",
+        &[
+            "--color-error",
+            "--color-error-muted",
+            "--color-success",
+            "--color-success-muted",
+            "--color-warning",
+            "--color-warning-muted",
+            "--color-info",
+            "--color-info-muted",
+        ],
+    ),
+    (
+        "Border",
+        &[
+            "--color-border",
+            "--color-border-emphasized",
+            "--color-border-error",
+            "--color-border-success",
+            "--color-border-warning",
+            "--color-border-info",
+        ],
+    ),
+];
+const TYPE_STYLES: &[&str] = &[
+    "display-1",
+    "display-2",
+    "display-3",
+    "heading-1",
+    "heading-2",
+    "heading-3",
+    "heading-4",
+    "heading-5",
+    "heading-6",
+    "large",
+    "body",
+    "label",
+    "supporting",
+    "code",
+];
+const SPACING: &[&str] = &[
+    "0-5", "1", "1-5", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12",
+];
+const RADII: &[&str] = &["inner", "element", "container", "page", "full"];
+const SHADOWS: &[&str] = &["low", "med", "high"];
+
+#[derive(Deserialize)]
+struct ThemeQuery {
+    theme: Option<String>,
+    mode: Option<String>,
+}
+
+fn layout(title: &str, name: &str, mode: ThemeMode, content: Markup) -> Markup {
+    let signals = serde_json::json!({ "mode": format!("{mode:?}").to_lowercase(), "theme": name })
+        .to_string();
+    let attrs = vec![
+        (
+            "data-attr:data-astryx-theme".to_string(),
+            "$theme".to_string(),
+        ),
+        ("data-attr:data-theme".to_string(), MODE_EXPR.to_string()),
+    ];
+    html! {
+        (DOCTYPE)
+        html lang="en" data-astryx-theme=(name) data-theme=[mode.data_theme()]
+            data-attr:data-astryx-theme="$theme" data-attr:data-theme=(MODE_EXPR) {
+            head {
+                meta charset="utf-8";
+                meta name="viewport" content="width=device-width, initial-scale=1";
+                title { (title) }
+                link rel="stylesheet" href="/canon/css/astryx.css";
+                @for t in THEMES { link rel="stylesheet" href={ "/canon/css/themes/" (t) ".css" }; }
+                link rel="stylesheet" href="/demo/demo.css";
+                script type="module" src="/canon/static/datastar.js" {}
+            }
+            body data-signals=(signals) {
+                (theme(&ThemeProps { name: Some(name.into()), mode, attrs }, html! {
+                    div.demo-shell {
+                        header.demo-header {
+                            nav { strong { "canon-datastar" } " " a href="/" { "Tokens" } }
+                            div.demo-controls {
+                                label {
+                                    "Theme "
+                                    select data-bind:theme {
+                                        @for t in THEMES { option value=(t) selected[t == name] { (t) } }
+                                    }
+                                }
+                                label {
+                                    "Mode "
+                                    select data-bind:mode {
+                                        option value="system" selected[mode == ThemeMode::System] { "System" }
+                                        option value="light" selected[mode == ThemeMode::Light] { "Light" }
+                                        option value="dark" selected[mode == ThemeMode::Dark] { "Dark" }
+                                    }
+                                }
+                            }
+                        }
+                        main { (content) }
+                    }
+                }))
+            }
+        }
+    }
+}
+
+fn tokens_page() -> Markup {
+    html! {
+        h1 { "Tokens" }
+        p.demo-lead { "Astryx design tokens and themes, rendered by Rust + maud. Theme and mode switch with Datastar signals." }
+        section.demo-section {
+            h2 { "Color" }
+            @for (group, vars) in COLOR_GROUPS {
+                h3 { (group) }
+                div.demo-swatches {
+                    @for v in *vars {
+                        div.demo-swatch {
+                            div.demo-chip style={ "background: var(" (v) ")" } {}
+                            code { (v) }
+                        }
+                    }
+                }
+            }
+        }
+        section.demo-section {
+            h2 { "Typography" }
+            @for t in TYPE_STYLES {
+                div.demo-type-row style={ "font-size: var(--text-" (t) "-size); font-weight: var(--text-" (t) "-weight); line-height: var(--text-" (t) "-leading)" } {
+                    span { "The quick brown fox" } code { "--text-" (t) }
+                }
+            }
+        }
+        section.demo-section {
+            h2 { "Spacing" }
+            @for s in SPACING {
+                div.demo-space-row {
+                    code { "--spacing-" (s) }
+                    div.demo-bar style={ "width: var(--spacing-" (s) ")" } {}
+                }
+            }
+        }
+        section.demo-section {
+            h2 { "Radius and shadow" }
+            div.demo-boxes {
+                @for r in RADII { div.demo-box style={ "border-radius: var(--radius-" (r) ")" } { code { "--radius-" (r) } } }
+                @for s in SHADOWS { div.demo-box.shadow style={ "box-shadow: var(--shadow-" (s) ")" } { code { "--shadow-" (s) } } }
+            }
+        }
+    }
+}
+
+async fn index(Query(q): Query<ThemeQuery>) -> Markup {
+    let name = q
+        .theme
+        .as_deref()
+        .filter(|t| THEMES.contains(t))
+        .unwrap_or("neutral");
+    let mode = ThemeMode::parse(q.mode.as_deref().unwrap_or(""));
+    layout("canon-datastar · Tokens", name, mode, tokens_page())
+}
+
+#[tokio::main]
+async fn main() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let app = Router::new()
+        .route("/", get(index))
+        .nest_service("/canon/css", ServeDir::new(root.join("css")))
+        .nest_service("/canon/static", ServeDir::new(root.join("static")))
+        .nest_service("/demo", ServeDir::new(root.join("demo")));
+    let addr = std::env::var("ADDR").unwrap_or_else(|_| "localhost:8081".into());
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    println!("canon-datastar demo on http://{addr}");
+    axum::serve(listener, app).await.unwrap();
+}

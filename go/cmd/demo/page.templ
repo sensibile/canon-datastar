@@ -1,0 +1,128 @@
+package main
+
+import (
+	"encoding/json"
+	"github.com/sensibile/canon-datastar/go/canon"
+)
+
+func signals(theme string, mode canon.ThemeMode) string {
+	b, _ := json.Marshal(map[string]string{"theme": theme, "mode": string(mode)})
+	return string(b)
+}
+
+// Datastar expression shared by <html> and Theme: drop data-theme for "system".
+const modeExpr = "$mode === 'system' ? null : $mode"
+
+templ layout(title string, theme string, mode canon.ThemeMode) {
+	<!DOCTYPE html>
+	<html
+		lang="en"
+		data-astryx-theme={ theme }
+		if t := mode.DataTheme(); t != "" {
+			data-theme={ t }
+		}
+		data-attr:data-astryx-theme="$theme"
+		data-attr:data-theme={ modeExpr }
+	>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title }</title>
+			<link rel="stylesheet" href="/canon/css/astryx.css"/>
+			for _, t := range canon.Themes {
+				<link rel="stylesheet" href={ "/canon/css/themes/" + t + ".css" }/>
+			}
+			<link rel="stylesheet" href="/demo/demo.css"/>
+			<script type="module" src="/canon/static/datastar.js"></script>
+		</head>
+		<body data-signals={ signals(theme, mode) }>
+			@canon.Theme(canon.ThemeProps{Name: theme, Mode: mode, Attrs: []canon.Attr{
+				{Name: "data-attr:data-astryx-theme", Value: "$theme"},
+				{Name: "data-attr:data-theme", Value: modeExpr},
+			}}) {
+				<div class="demo-shell">
+					<header class="demo-header">
+						<nav>
+							<strong>canon-datastar</strong>
+							<a href="/">Tokens</a>
+						</nav>
+						<div class="demo-controls">
+							<label>
+								Theme
+								<select data-bind:theme>
+									for _, t := range canon.Themes {
+										<option value={ t } selected?={ t == theme }>{ t }</option>
+									}
+								</select>
+							</label>
+							<label>
+								Mode
+								<select data-bind:mode>
+									<option value="system" selected?={ mode == canon.ModeSystem }>System</option>
+									<option value="light" selected?={ mode == canon.ModeLight }>Light</option>
+									<option value="dark" selected?={ mode == canon.ModeDark }>Dark</option>
+								</select>
+							</label>
+						</div>
+					</header>
+					<main>
+						{ children... }
+					</main>
+				</div>
+			}
+		</body>
+	</html>
+}
+
+templ tokensPage() {
+	<h1>Tokens</h1>
+	<p class="demo-lead">Astryx design tokens and themes, rendered by Go + templ. Theme and mode switch with Datastar signals.</p>
+	<section class="demo-section">
+		<h2>Color</h2>
+		for _, g := range colorGroups {
+			<h3>{ g.Name }</h3>
+			<div class="demo-swatches">
+				for _, v := range g.Vars {
+					<div class="demo-swatch">
+						<div class="demo-chip" style={ "background: var(" + v + ")" }></div>
+						<code>{ v }</code>
+					</div>
+				}
+			</div>
+		}
+	</section>
+	<section class="demo-section">
+		<h2>Typography</h2>
+		for _, t := range typeStyles {
+			<div class="demo-type-row" style={ "font-size: var(--text-" + t + "-size); font-weight: var(--text-" + t + "-weight); line-height: var(--text-" + t + "-leading)" }>
+				<span>The quick brown fox</span><code>{ "--text-" + t }</code>
+			</div>
+		}
+	</section>
+	<section class="demo-section">
+		<h2>Spacing</h2>
+		for _, s := range spacing {
+			<div class="demo-space-row">
+				<code>{ "--spacing-" + s }</code>
+				<div class="demo-bar" style={ "width: var(--spacing-" + s + ")" }></div>
+			</div>
+		}
+	</section>
+	<section class="demo-section">
+		<h2>Radius and shadow</h2>
+		<div class="demo-boxes">
+			for _, r := range radii {
+				<div class="demo-box" style={ "border-radius: var(--radius-" + r + ")" }><code>{ "--radius-" + r }</code></div>
+			}
+			for _, s := range shadows {
+				<div class="demo-box shadow" style={ "box-shadow: var(--shadow-" + s + ")" }><code>{ "--shadow-" + s }</code></div>
+			}
+		</div>
+	</section>
+}
+
+templ index(theme string, mode canon.ThemeMode) {
+	@layout("canon-datastar · Tokens", theme, mode) {
+		@tokensPage()
+	}
+}
