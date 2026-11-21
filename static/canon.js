@@ -24,7 +24,12 @@ const anchored = new Map();
 
 function place(layer, anchor) {
   if (!anchor.isConnected) return;
-  const pref = (layer._canonPlacement ??= layer.dataset.placement || 'below');
+  // The preferred side is the server's data-placement; ours (written below after a flip) is
+  // remembered, so a patch that changes the attribute is told apart and becomes the new preference.
+  if (layer._canonPlacement === undefined || layer.dataset.placement !== layer._canonWrote) {
+    layer._canonPlacement = layer.dataset.placement || 'below';
+  }
+  const pref = layer._canonPlacement;
   const align = layer.dataset.alignment || 'center';
   const rtl = getComputedStyle(anchor).direction === 'rtl';
   const a = anchor.getBoundingClientRect();
@@ -64,6 +69,7 @@ function place(layer, anchor) {
   layer.style.top = `${Math.round(y)}px`;
   const logical = { top: 'above', bottom: 'below', left: rtl ? 'end' : 'start', right: rtl ? 'start' : 'end' };
   layer.dataset.placement = logical[side];
+  layer._canonWrote = logical[side];
 }
 
 function track(layer, anchor) {
@@ -123,10 +129,16 @@ function focusables(root, skipAriaDisabled = false) {
 }
 
 function focusFirst(root) {
-  const target = root.querySelector('[autofocus], [data-autofocus]') ?? focusables(root, true)[0];
+  // The preferred target only if it can take focus (not hidden or disabled), else the first
+  // focusable, else the surface itself.
+  const usable = focusables(root, true);
+  const preferred = Array.from(root.querySelectorAll('[autofocus], [data-autofocus]')).find(
+    (el) => usable.includes(el) || (el.tabIndex === -1 && el.getClientRects().length > 0 && !el.closest('[inert]')),
+  );
+  const target = preferred ?? usable[0];
   if (target) {
     target.focus({ preventScroll: true });
-    return;
+    if (doc.activeElement === target) return;
   }
   if (!root.hasAttribute('tabindex')) root.tabIndex = -1;
   root.focus({ preventScroll: true });

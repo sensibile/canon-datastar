@@ -153,14 +153,19 @@ fn tab(
         a = a.set("type", "button");
         "button"
     };
-    if !p.signal.is_empty() && !t.is_disabled {
-        let is = format!("${} === {}", p.signal, js_string(&t.value));
+    let is = format!("${} === {}", p.signal, js_string(&t.value));
+    if !p.signal.is_empty() {
         a = a.set("data-attr:data-selected", &format!("{is} && 'selected'"));
         a = if is_tab_list {
             a.set("data-attr:aria-selected", &format!("String({is})"))
         } else {
             a.set("data-attr:aria-current", &format!("{is} && 'true'"))
         };
+    }
+    if t.is_disabled {
+        // Selection attributes (above) still follow the signal; activation stays off.
+        a = a.extra(&without_prefix(&t.attrs, "data-on:"));
+    } else if !p.signal.is_empty() {
         // Selecting runs first, then the caller's own click action (one attribute holds both).
         let mut click = format!("${} = {}", p.signal, js_string(&t.value));
         let mut rest = Vec::new();
@@ -186,8 +191,6 @@ fn tab(
             .set("data-attr:tabindex", &tabindex)
             .set("data-on:click", &click)
             .extra(&rest);
-    } else if t.is_disabled {
-        a = a.extra(&without_prefix(&t.attrs, "data-on:"));
     } else {
         a = a.extra(&t.attrs);
     }

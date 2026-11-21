@@ -127,7 +127,7 @@ func tab(t TabProps, p TabListProps, size, layout string, isTabList, isStop bool
 	} else {
 		a.set("type", "button")
 	}
-	if p.Signal != "" && !t.IsDisabled {
+	if p.Signal != "" {
 		is := "$" + p.Signal + " === " + jsString(t.Value)
 		a.set("data-attr:data-selected", is+" && 'selected'")
 		if isTabList {
@@ -135,6 +135,13 @@ func tab(t TabProps, p TabListProps, size, layout string, isTabList, isStop bool
 		} else {
 			a.set("data-attr:aria-current", is+" && 'true'")
 		}
+	}
+	switch {
+	case t.IsDisabled:
+		// Selection attributes (above) still follow the signal; activation stays off.
+		a.extra(withoutPrefix(t.Attrs, "data-on:"))
+	case p.Signal != "":
+		is := "$" + p.Signal + " === " + jsString(t.Value)
 		// Selecting runs first, then the caller's own click action (one attribute holds both).
 		click := "$" + p.Signal + " = " + jsString(t.Value)
 		var rest []Attr
@@ -146,14 +153,12 @@ func tab(t TabProps, p TabListProps, size, layout string, isTabList, isStop bool
 			}
 		}
 		tabindex := is + " ? 0 : -1"
-		if fb := fallbackStop(p); fb == t.Value {
+		if fallbackStop(p) == t.Value {
 			// No enabled tab matches the signal: this first enabled tab stays reachable.
 			tabindex = is + " || !" + tabValues(p) + ".includes($" + p.Signal + ") ? 0 : -1"
 		}
 		a.set("data-attr:tabindex", tabindex).set("data-on:click", click).extra(rest)
-	} else if t.IsDisabled {
-		a.extra(withoutPrefix(t.Attrs, "data-on:"))
-	} else {
+	default:
 		a.extra(t.Attrs)
 	}
 
