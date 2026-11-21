@@ -182,7 +182,9 @@ function inForeground(node, layer) {
 /** Open popovers and menus, innermost last. Tooltips aren't layers you interact with, so
  * they stay out of it and never suspend a modal popover's focus trap. @type {HTMLElement[]} */
 const stack = [];
-const isTop = (el) => stack[stack.length - 1] === el;
+/** Whether `el` is the innermost open modal popover; non-modal layers above it (a child
+ * popover or menu) don't suspend its focus trap. */
+const isTopModal = (el) => stack.findLast((l) => l.matches('[data-modal]')) === el;
 
 function safeShow(layer) {
   try {
@@ -562,8 +564,9 @@ function onMenuKey(e, menu) {
 
 function onTabsKey(e, root) {
   const isTabList = root.querySelector('[role="tablist"]') != null;
+  // Skip disabled tabs and ones hidden (e.g. by data-show), which can't take focus.
   const stops = Array.from(root.querySelectorAll('[data-tab-value]')).filter(
-    (el) => el.getAttribute('aria-disabled') !== 'true',
+    (el) => el.getAttribute('aria-disabled') !== 'true' && el.getClientRects().length > 0,
   );
   const i = stops.indexOf(e.target);
   if (i < 0) return;
@@ -636,7 +639,7 @@ doc.addEventListener('keydown', (e) => {
   if (menu) onMenuKey(e, menu);
 
   const layer = t.closest('.astryx-popover[data-modal]');
-  if (layer && e.key === 'Tab' && isTop(layer)) trapTab(e, layer);
+  if (layer && e.key === 'Tab' && isTopModal(layer)) trapTab(e, layer);
 
   const tabs = t.closest('.astryx-tab-list');
   if (tabs) onTabsKey(e, tabs);
