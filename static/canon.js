@@ -152,6 +152,12 @@ function trapTab(e, root) {
   }
 }
 
+/** Whether `node` is in a modal dialog or layer opened above `layer` (not one that contains it). */
+function inForeground(node, layer) {
+  const fg = node.closest('dialog:modal, .astryx-layer');
+  return fg != null && fg !== layer && !fg.contains(layer);
+}
+
 // ---------------------------------------------------------------------------------------------
 // Open layers, innermost last.
 
@@ -341,7 +347,7 @@ doc.addEventListener('focusout', (e) => {
     !layer.hasAttribute('data-no-light-dismiss') &&
     !layer.contains(next) &&
     !anchorFor(layer)?.contains(next) &&
-    !next.closest('dialog:modal, .astryx-layer')
+    !inForeground(next, layer)
   ) {
     safeHide(layer);
   }
@@ -366,7 +372,7 @@ doc.addEventListener(
     // Manual popovers with light dismiss (auto popovers get it natively).
     for (const layer of [...stack].reverse()) {
       if (!layer.matches('.astryx-popover[popover="manual"]:not([data-no-light-dismiss])')) continue;
-      if (layer.contains(t) || anchorFor(layer)?.contains(t) || t.closest('dialog:modal')) continue;
+      if (layer.contains(t) || anchorFor(layer)?.contains(t) || inForeground(t, layer)) continue;
       safeHide(layer);
     }
   },
@@ -512,6 +518,8 @@ function onMenuKey(e, menu) {
   }
   // Space activates the focused item; it only extends a typeahead already in progress.
   if (e.key === ' ' && typeahead === '') return;
+  // A space inside a search extends it rather than activating the focused item.
+  if (e.key === ' ') e.preventDefault();
   if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
     clearTimeout(typeaheadTimer);
     typeahead += e.key.toLowerCase();
@@ -719,6 +727,17 @@ function raiseToasts() {
   }
 }
 
+function applyToast(t, opts) {
+  const type = opts.type ?? 'info';
+  t.dataset.type = type;
+  t.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  t.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+  const autoHide = opts.autoHide ?? type !== 'error';
+  if (autoHide) t.dataset.autoHide = String(opts.duration ?? 5000);
+  else delete t.dataset.autoHide;
+  t.querySelector('.astryx-toast-content').textContent = opts.body;
+}
+
 /**
  * Show a toast from the client. Uses the viewport's <template>, so it has the same markup as a
  * server-rendered Toast. Returns a function that dismisses it.
@@ -733,7 +752,9 @@ function toast(opts) {
     if (existing && !existing.hasAttribute('data-exiting')) {
       const t = existing.querySelector('.astryx-toast');
       if (opts.collision !== 'ignore' && t) {
-        t.querySelector('.astryx-toast-content').textContent = opts.body;
+        // Overwrite: new body, type and timing; startToast restarts the timer if it changed.
+        applyToast(t, opts);
+        startToast(t);
       }
       return () => t && dismissToast(t, 'manual');
     }
@@ -741,14 +762,7 @@ function toast(opts) {
   const row = tpl.content.firstElementChild.cloneNode(true);
   if (opts.id) row.id = opts.id;
   const t = row.querySelector('.astryx-toast');
-  const type = opts.type ?? 'info';
-  t.dataset.type = type;
-  t.setAttribute('role', type === 'error' ? 'alert' : 'status');
-  t.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
-  const autoHide = opts.autoHide ?? type !== 'error';
-  if (autoHide) t.dataset.autoHide = String(opts.duration ?? 5000);
-  else delete t.dataset.autoHide;
-  t.querySelector('.astryx-toast-content').textContent = opts.body;
+  applyToast(t, opts);
   viewport.append(row);
   syncViewport(viewport);
   return () => dismissToast(t, 'manual');
@@ -810,7 +824,18 @@ function queueScan() {
   });
 }
 
+/** Forget layers a patch removed while open; a detached node gets no toggle event. */
+function prune() {
+  for (const layer of anchored.keys()) {
+    if (layer.isConnected) continue;
+    anchored.delete(layer);
+    resizeObserver.unobserve(layer);
+  }
+  for (let i = stack.length - 1; i >= 0; i--) if (!stack[i].isConnected) stack.splice(i, 1);
+}
+
 new MutationObserver((records) => {
+  if (records.some((r) => r.removedNodes.length > 0)) prune();
   let raise = false;
   for (const r of records) {
     if (r.type === 'attributes' && r.attributeName === 'open' && r.target instanceof HTMLDialogElement) raise = true;
