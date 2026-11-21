@@ -1,0 +1,135 @@
+/* Avatar, AvatarStatusDot, AvatarGroup, AvatarGroupOverflow. Port of Astryx packages/core/src/
+ * Avatar, AvatarGroup (MIT, Meta Platforms, Inc.).
+ * Markup: <div|a|button class="astryx-avatar" data-size data-shape [data-interactive] [data-in-group]>
+ *   <div class="astryx-avatar-content">[<img class="astryx-avatar-image">]
+ *     <div class="astryx-avatar-fallback" [data-initials] [data-lone] [hidden]>…</div></div>
+ *   [<div class="astryx-avatar-status" [data-corner]>status</div>]
+ * The fallback is always rendered (hidden behind an image) so canon.js can swap to it when the
+ * image fails to load. */
+@layer astryx-base {
+  .astryx-avatar {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    border-radius: var(--_avatar-radius);
+  }
+  :is(.astryx-avatar, .astryx-avatar-group-overflow)[data-shape='circle'] { --_avatar-radius: var(--radius-full); }
+  :is(.astryx-avatar, .astryx-avatar-group-overflow)[data-shape='rounded'] { --_avatar-radius: var(--radius-element); }
+  :is(.astryx-avatar, .astryx-avatar-group-overflow)[data-shape='square'] { --_avatar-radius: var(--radius-none); }
+  .astryx-avatar:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: var(--focus-outline-offset, 2px);
+  }
+  .astryx-avatar[data-interactive] {
+    appearance: none;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .astryx-avatar[data-interactive]:is(:disabled, [aria-disabled='true']) { cursor: default; }
+  .astryx-avatar[data-in-group] {
+    border: 2px solid var(--color-background-surface);
+    background-color: var(--color-background-surface);
+    box-sizing: content-box;
+    margin-inline-start: var(--_avatar-group-overlap);
+  }
+  .astryx-avatar-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    user-select: none;
+    border-radius: var(--_avatar-radius);
+  }
+  .astryx-avatar-image { width: 100%; height: 100%; object-fit: cover; }
+  .astryx-avatar-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background-color: var(--color-neutral);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+  }
+  .astryx-avatar-fallback[hidden] { display: none; }
+  @media (forced-colors: active) {
+    .astryx-avatar-fallback[data-lone] { color: currentColor; }
+  }
+  /* Initials are drawn by CSS so they're not read twice; the root carries the name. */
+  .astryx-avatar-fallback[data-initials]::before { content: var(--_initials); }
+  @supports (content: 'a' / '') {
+    .astryx-avatar-fallback[data-initials]::before { content: var(--_initials) / ''; }
+  }
+  .astryx-avatar-status { position: absolute; transform: translate(50%, 50%); }
+  .astryx-avatar-status[data-corner] { bottom: 0; inset-inline-end: 0; transform: translate(25%, 25%); }
+  [dir='rtl'] .astryx-avatar-status { transform: translate(-50%, 50%); }
+  [dir='rtl'] .astryx-avatar-status[data-corner] { transform: translate(-25%, 25%); }
+
+  /* <div class="astryx-avatar-status-dot" data-variant style="width; height; border-width"> */
+  .astryx-avatar-status-dot {
+    border-radius: var(--radius-full);
+    border-style: solid;
+    border-color: var(--color-background-surface);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .astryx-avatar-status-dot[data-variant='success'] { background-color: var(--color-success); color: var(--color-on-success); }
+  .astryx-avatar-status-dot[data-variant='neutral'] { background-color: var(--color-background-surface); color: var(--color-text-secondary); }
+  .astryx-avatar-status-dot[data-variant='error'] { background-color: var(--color-error); color: var(--color-on-error); }
+  .astryx-avatar-status-dot-icon { display: flex; align-items: center; justify-content: center; line-height: 0; }
+
+  /* <div class="astryx-avatar-group" role="group" data-size data-shape style="--_avatar-group-overlap"> */
+  .astryx-avatar-group {
+    display: inline-flex;
+    align-items: center;
+    padding-inline-start: calc(-1 * var(--_avatar-group-overlap));
+  }
+  .astryx-avatar-group:empty { padding-inline-start: 0; }
+
+  /* <span|button class="astryx-avatar-group-overflow" data-size data-shape> */
+  .astryx-avatar-group-overflow {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--_avatar-radius);
+    background-color: var(--color-background-surface);
+    background-image: linear-gradient(var(--color-neutral), var(--color-neutral));
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-body);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--text-supporting-leading);
+    user-select: none;
+    border: 2px solid var(--color-background-surface);
+    box-sizing: border-box;
+    padding-inline: var(--spacing-2);
+    margin-inline-start: var(--_avatar-group-overlap);
+  }
+  button.astryx-avatar-group-overflow { cursor: pointer; padding-block: 0; font-size: inherit; }
+  @media (hover: hover) {
+    button.astryx-avatar-group-overflow:hover {
+      background-image: linear-gradient(var(--color-overlay-hover), var(--color-overlay-hover)),
+        linear-gradient(var(--color-neutral), var(--color-neutral));
+    }
+  }
+  button.astryx-avatar-group-overflow:active {
+    background-image: linear-gradient(var(--color-overlay-pressed), var(--color-overlay-pressed)),
+      linear-gradient(var(--color-neutral), var(--color-neutral));
+  }
+  button.astryx-avatar-group-overflow:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: 2px;
+  }
+}

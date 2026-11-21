@@ -1,0 +1,77 @@
+/* MetadataList and MetadataListItem. Port of Astryx packages/core/src/MetadataList (MIT, Meta
+ * Platforms, Inc.).
+ * Markup: <div class="astryx-metadata-list" data-columns data-orientation>
+ *   [<div class="astryx-metadata-list-title">…]
+ *   <dl class="astryx-metadata-list-list" data-layout [style=grid-template-columns]>items</dl>
+ *   [<button class="astryx-metadata-list-toggle" aria-expanded>Show more</button>]</div>
+ * Inline item: <dt class="astryx-metadata-list-item astryx-metadata-list-label" data-inline>
+ *   + <dd class="astryx-metadata-list-value" data-inline>; stacked item:
+ *   <div class="astryx-metadata-list-item" data-stacked><dt class="…-label"><dd class="…-value"></div>. */
+@layer astryx-base {
+  .astryx-metadata-list { display: flex; flex-direction: column; }
+  .astryx-metadata-list-title { margin-bottom: var(--spacing-3); }
+  .astryx-metadata-list-list { margin: 0; padding: 0; }
+  .astryx-metadata-list-list[data-layout='single'] {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--spacing-2) var(--spacing-4);
+    align-items: baseline;
+  }
+  .astryx-metadata-list-list[data-layout='stacked-multi'] {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-4);
+  }
+  /* Inline labels: tracks repeat in label/value pairs so a label never wraps away from its value. */
+  .astryx-metadata-list-list[data-layout='multi'] {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, max-content) minmax(184px, 1fr));
+    gap: var(--spacing-2) var(--spacing-4);
+    align-items: baseline;
+  }
+  .astryx-metadata-list-list[data-layout='stacked-single'] { display: grid; grid-template-columns: 1fr; gap: var(--spacing-3); }
+  .astryx-metadata-list-list[data-layout='horizontal'] { display: flex; flex-direction: row; flex-wrap: wrap; gap: var(--spacing-4); }
+  .astryx-metadata-list-toggle {
+    appearance: none;
+    background-color: transparent;
+    border: none;
+    padding: var(--spacing-2) 0;
+    cursor: pointer;
+    color: var(--color-text-accent);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    font-weight: var(--font-weight-medium);
+    font-family: inherit;
+    text-align: start;
+    align-self: flex-start;
+  }
+  .astryx-metadata-list-toggle:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: 2px;
+  }
+
+  .astryx-metadata-list-label {
+    color: var(--color-text-secondary);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    font-weight: var(--font-weight-medium);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    margin: 0;
+    padding: 0;
+    word-break: break-word;
+  }
+  .astryx-metadata-list-value {
+    color: var(--color-text-primary);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    margin: 0;
+    padding: 0;
+    overflow-wrap: break-word;
+  }
+  :is(.astryx-metadata-list-label, .astryx-metadata-list-value)[data-inline] { min-height: 24px; }
+  .astryx-metadata-list-item[data-stacked] { display: flex; flex-direction: column; gap: var(--spacing-0-5); min-width: 0; }
+  .astryx-metadata-list-icon { display: inline-flex; align-items: center; flex-shrink: 0; color: var(--color-text-secondary); }
+  :is(.astryx-metadata-list-item, .astryx-metadata-list-value)[hidden] { display: none; }
+}

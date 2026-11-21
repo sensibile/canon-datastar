@@ -1,0 +1,106 @@
+/* Card, Section, Center, Grid, GridSpan, AspectRatio. Port of Astryx packages/core/src/Card,
+ * Section, Center, Grid, AspectRatio (MIT, Meta Platforms, Inc.). Sizes, gaps and padding
+ * props are inline styles; padding hooks are the theme's --astryx-card-padding* and
+ * --astryx-section-padding* (default spacing-4). */
+@layer astryx-base {
+  /* Card: <div class="astryx-card" data-variant data-elevation [data-scrollable]> */
+  .astryx-card {
+    /* Each Card starts without an override, so an outer Card's padding doesn't leak in;
+       the inline style from the Padding prop wins over this. */
+    --_card-padding: initial;
+    --_card-elevation: initial;
+    --_card-radius: var(--radius-container);
+    --_pad: var(--_card-padding, var(--astryx-card-padding, var(--spacing-4)));
+    --_pad-inline: var(--_card-padding, var(--astryx-card-padding-inline, var(--_pad)));
+    --container-padding-inline-start: var(--_card-padding, var(--astryx-card-padding-inline-start, var(--_pad-inline)));
+    --container-padding-inline-end: var(--_card-padding, var(--astryx-card-padding-inline-end, var(--_pad-inline)));
+    --container-padding-block-start: var(--_card-padding, var(--astryx-card-padding-block-start, var(--_pad)));
+    --container-padding-block-end: var(--_card-padding, var(--astryx-card-padding-block-end, var(--_pad)));
+    box-sizing: border-box;
+    padding-inline-start: var(--container-padding-inline-start);
+    padding-inline-end: var(--container-padding-inline-end);
+    padding-block-start: var(--container-padding-block-start);
+    padding-block-end: var(--container-padding-block-end);
+    border-radius: var(--_card-radius);
+    min-width: 0;
+    overflow: clip;
+    box-shadow: var(--_card-ring, 0 0 transparent), var(--_card-elevation, 0 0 transparent);
+  }
+  .astryx-card[data-scrollable] { overflow: auto; }
+  .astryx-card[data-variant='default'] {
+    background-color: var(--color-background-card);
+    border: var(--border-width) solid var(--color-border);
+    padding-inline-start: calc(var(--container-padding-inline-start) - var(--border-width));
+    padding-inline-end: calc(var(--container-padding-inline-end) - var(--border-width));
+    padding-block-start: calc(var(--container-padding-block-start) - var(--border-width));
+    padding-block-end: calc(var(--container-padding-block-end) - var(--border-width));
+  }
+  .astryx-card[data-variant='transparent'] { background-color: transparent; }
+  .astryx-card[data-variant='muted'] { background-color: var(--color-background-muted); }
+  .astryx-card[data-variant='blue'] { background-color: var(--color-background-blue); }
+  .astryx-card[data-variant='cyan'] { background-color: var(--color-background-cyan); }
+  .astryx-card[data-variant='gray'] { background-color: var(--color-background-gray); }
+  .astryx-card[data-variant='green'] { background-color: var(--color-background-green); }
+  .astryx-card[data-variant='orange'] { background-color: var(--color-background-orange); }
+  .astryx-card[data-variant='pink'] { background-color: var(--color-background-pink); }
+  .astryx-card[data-variant='purple'] { background-color: var(--color-background-purple); }
+  .astryx-card[data-variant='red'] { background-color: var(--color-background-red); }
+  .astryx-card[data-variant='teal'] { background-color: var(--color-background-teal); }
+  .astryx-card[data-variant='yellow'] { background-color: var(--color-background-yellow); }
+  .astryx-card[data-elevation='low'] { --_card-elevation: var(--shadow-low); }
+  .astryx-card[data-elevation='med'] { --_card-elevation: var(--shadow-med); }
+  .astryx-card[data-elevation='high'] { --_card-elevation: var(--shadow-high); }
+
+  /* Section: <div class="astryx-section-outer"><div class="astryx-section" data-variant [data-divider-*]> */
+  .astryx-section-outer {
+    margin-inline-start: calc(-1 * var(--container-padding-inline-start, 0px));
+    margin-inline-end: calc(-1 * var(--container-padding-inline-end, 0px));
+  }
+  .astryx-section-outer:first-child { margin-top: calc(-1 * var(--container-padding-block-start, 0px)); }
+  .astryx-section-outer:last-child { margin-bottom: calc(-1 * var(--container-padding-block-end, 0px)); }
+  .astryx-section {
+    --_section-padding: initial;
+    --_section-pis: initial;
+    --_section-pie: initial;
+    --_section-pbs: initial;
+    --_section-pbe: initial;
+    --_pad: var(--_section-padding, var(--astryx-section-padding, var(--spacing-4)));
+    --_pad-inline: var(--_section-padding, var(--astryx-section-padding-inline, var(--_pad)));
+    --container-padding-inline-start: var(--_section-pis, var(--_section-padding, var(--astryx-section-padding-inline-start, var(--_pad-inline))));
+    --container-padding-inline-end: var(--_section-pie, var(--_section-padding, var(--astryx-section-padding-inline-end, var(--_pad-inline))));
+    --container-padding-block-start: var(--_section-pbs, var(--_section-padding, var(--astryx-section-padding-block-start, var(--_pad))));
+    --container-padding-block-end: var(--_section-pbe, var(--_section-padding, var(--astryx-section-padding-block-end, var(--_pad))));
+    box-sizing: border-box;
+    height: 100%;
+    padding-inline-start: var(--container-padding-inline-start);
+    padding-inline-end: var(--container-padding-inline-end);
+    padding-block-start: var(--container-padding-block-start);
+    padding-block-end: var(--container-padding-block-end);
+  }
+  .astryx-section[data-variant='section'] { background-color: var(--color-background-surface); }
+  .astryx-section[data-variant='transparent'] { background-color: transparent; }
+  .astryx-section[data-variant='muted'] { background-color: var(--color-background-muted); }
+  .astryx-section[data-divider-top] { border-top: 1px solid var(--color-border); }
+  .astryx-section[data-divider-bottom] { border-bottom: 1px solid var(--color-border); }
+  .astryx-section[data-divider-start] { border-inline-start: 1px solid var(--color-border); }
+  .astryx-section[data-divider-end] { border-inline-end: 1px solid var(--color-border); }
+
+  /* Center: <div class="astryx-center" data-axis [data-inline]> */
+  .astryx-center { display: flex; }
+  .astryx-center[data-inline] { display: inline-flex; }
+  .astryx-center:is([data-axis='both'], [data-axis='vertical']) { align-items: center; }
+  .astryx-center:is([data-axis='both'], [data-axis='horizontal']) { justify-content: center; }
+
+  /* Grid: <div class="astryx-grid" style="grid-template-columns: …">, GridSpan: <div class="astryx-grid-span"> */
+  .astryx-grid { display: grid; }
+  .astryx-grid-span { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); height: 100%; }
+
+  /* AspectRatio: <div class="astryx-aspect-ratio" data-shape><div class="astryx-aspect-ratio-child" [data-fit]> */
+  .astryx-aspect-ratio { position: relative; width: 100%; overflow: clip; min-height: 0; flex-shrink: 0; }
+  .astryx-aspect-ratio[data-shape='ellipse'] { border-radius: 50%; }
+  .astryx-aspect-ratio-child { position: absolute; top: 0; inset-inline-start: 0; width: 100%; height: 100%; }
+  .astryx-aspect-ratio-child[data-fit='center'] { display: flex; align-items: center; justify-content: center; }
+  .astryx-aspect-ratio-child:is([data-fit='cover'], [data-fit='contain']) > * { width: 100%; height: 100%; }
+  .astryx-aspect-ratio-child[data-fit='cover'] > :is(img, video) { object-fit: cover; }
+  .astryx-aspect-ratio-child[data-fit='contain'] > :is(img, video) { object-fit: contain; }
+}

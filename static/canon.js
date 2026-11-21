@@ -1,5 +1,6 @@
-// canon.js: client behaviour for canon-datastar overlays (Tooltip, InfoTip, Popover, Dialog,
-// DropdownMenu, TabList, Toast). Ports the interaction logic of Astryx (packages/core/src),
+// canon.js: client behaviour for canon-datastar components: overlays (Tooltip, InfoTip, Popover,
+// Dialog, DropdownMenu, TabList, Toast) and content (Collapsible, Banner, Avatar, Token,
+// MetadataList, Thumbnail, Kbd, Timestamp). Ports the interaction logic of Astryx (packages/core/src),
 // MIT, Meta Platforms, Inc.
 //
 // Load it before Datastar so Datastar expressions can call window.canon:
@@ -869,6 +870,422 @@ function toast(opts) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Collapsible and Banner: expand and collapse, with a bubbling "canon-toggle" event.
+
+function disclosure(root) {
+  if (root.matches('.astryx-collapsible')) {
+    return {
+      trigger: root.querySelector(':scope > .astryx-collapsible-trigger'),
+      content: root.querySelector(':scope > .astryx-collapsible-content'),
+    };
+  }
+  return {
+    trigger: root.querySelector(':scope > .astryx-banner .astryx-banner-toggle'),
+    content: root.querySelector(':scope > .astryx-banner-content'),
+  };
+}
+
+/** Opens or closes a Collapsible or Banner body; in a "single" group, closes the others. */
+function setOpen(root, open) {
+  const { trigger, content } = disclosure(root);
+  if (!trigger || !content) return;
+  if ((trigger.getAttribute('aria-expanded') === 'true') === open) return;
+  // Focus inside content that's about to hide goes back to the trigger.
+  if (!open && content.contains(doc.activeElement)) trigger.focus({ preventScroll: true });
+  trigger.setAttribute('aria-expanded', String(open));
+  content.hidden = !open;
+  if (trigger.matches('.astryx-banner-toggle')) trigger.setAttribute('aria-label', open ? 'Collapse' : 'Expand');
+  root.dispatchEvent(new CustomEvent('canon-toggle', { bubbles: true, detail: { open } }));
+  const group = root.parentElement;
+  if (open && root.dataset.value && group?.matches('.astryx-collapsible-group[data-type="single"]')) {
+    for (const other of group.querySelectorAll(':scope > .astryx-collapsible[data-value]')) {
+      if (other !== root) setOpen(other, false);
+    }
+  }
+}
+
+// Where focus was before it entered a Banner, so dismissing can send it back.
+function rememberOrigin(candidate, frame) {
+  if (candidate instanceof HTMLElement && candidate !== doc.body && !frame.contains(candidate)) {
+    frame._canonOrigin = candidate;
+  }
+}
+doc.addEventListener(
+  'focusin',
+  (e) => {
+    const frame = e.target instanceof Element && e.target.closest('.astryx-banner-frame');
+    if (frame) rememberOrigin(e.relatedTarget, frame);
+  },
+  true,
+);
+doc.addEventListener(
+  'pointerdown',
+  (e) => {
+    const frame = e.target instanceof Element && e.target.closest('.astryx-banner-frame');
+    if (frame) rememberOrigin(doc.activeElement, frame);
+  },
+  true,
+);
+
+// ---------------------------------------------------------------------------------------------
+// Avatar and Thumbnail images that fail to load.
+
+function imageFailed(img) {
+  if (img.matches('.astryx-avatar-image')) {
+    const next = img.dataset.fallbackSrc;
+    if (next) {
+      img.removeAttribute('data-fallback-src');
+      img.src = next;
+      return;
+    }
+    img.hidden = true;
+    const fallback = img.parentElement?.querySelector(':scope > .astryx-avatar-fallback');
+    if (fallback) fallback.hidden = false;
+  } else if (img.matches('.astryx-thumbnail-image')) {
+    img.hidden = true;
+    const frame = img.closest('.astryx-thumbnail-frame');
+    const border = frame?.querySelector(':scope > .astryx-thumbnail-inset-border');
+    if (border) border.hidden = true;
+    const placeholder = frame?.querySelector('.astryx-thumbnail-placeholder');
+    if (placeholder) placeholder.hidden = false;
+  }
+}
+doc.addEventListener(
+  'error',
+  (e) => {
+    if (e.target instanceof HTMLImageElement) imageFailed(e.target);
+  },
+  true,
+);
+const IMAGES = '.astryx-avatar-image:not([hidden]), .astryx-thumbnail-image:not([hidden])';
+/** Images that failed before this module loaded (or were patched in already broken). */
+function checkImages() {
+  for (const img of doc.querySelectorAll(IMAGES)) {
+    if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) imageFailed(img);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Clicks: Collapsible, Banner toggle and dismiss, Token body, MetadataList "Show more".
+
+doc.addEventListener('click', (e) => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+
+  const trigger = t.closest('.astryx-collapsible-trigger, .astryx-banner-toggle');
+  if (trigger && trigger.getAttribute('aria-disabled') !== 'true') {
+    const root = trigger.closest('.astryx-collapsible, .astryx-banner-frame');
+    if (root) setOpen(root, trigger.getAttribute('aria-expanded') !== 'true');
+  }
+
+  const dismiss = t.closest('[data-banner-dismiss]');
+  if (dismiss) {
+    const frame = dismiss.closest('.astryx-banner-frame');
+    if (frame) {
+      const origin = frame._canonOrigin;
+      frame.hidden = true;
+      frame.dispatchEvent(new CustomEvent('canon-dismiss', { bubbles: true }));
+      if (origin?.isConnected) origin.focus({ preventScroll: true });
+    }
+  }
+
+  // Clicking a Token's body (not a control inside it) activates its label link or button.
+  const owner = t.closest('.astryx-token[data-owner]');
+  if (owner && !owner.hasAttribute('data-disabled')) {
+    const nested = t.closest('a[href], button, input, select, textarea, summary, label, [role="button"], [role="link"], [tabindex]');
+    const inner = owner.querySelector(':scope > .astryx-token-inner');
+    if (inner && (!nested || !owner.contains(nested) || nested === owner)) {
+      // Keep the modifiers so Ctrl/Cmd/Shift-click keep their link meaning.
+      const { ctrlKey, metaKey, shiftKey, altKey, button } = e;
+      inner.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey, metaKey, shiftKey, altKey, button }),
+      );
+    }
+  }
+
+  const more = t.closest('.astryx-metadata-list-toggle');
+  if (more) {
+    const list = doc.getElementById(more.getAttribute('aria-controls') ?? '');
+    const max = Number(list?.dataset.max ?? 0);
+    if (list && max > 0) {
+      const showAll = more.getAttribute('aria-expanded') !== 'true';
+      [...list.querySelectorAll(':scope > [data-metadata-item]')].forEach((item, i) => {
+        const hide = !showAll && i >= max;
+        item.hidden = hide;
+        const value = item.nextElementSibling;
+        if (item.tagName === 'DT' && value?.tagName === 'DD') value.hidden = hide;
+      });
+      more.setAttribute('aria-expanded', String(showAll));
+      more.textContent = showAll ? 'Show less' : 'Show more';
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------------------------
+// AvatarGroup: interactive avatars are one tab stop, moved with arrows, Home and End.
+
+doc.addEventListener('focusin', (e) => {
+  const item = e.target instanceof Element && e.target.closest('[data-avatar-item]');
+  const group = item && item.closest('.astryx-avatar-group');
+  if (!group) return;
+  for (const el of group.querySelectorAll('[data-avatar-item]')) el.tabIndex = el === item ? 0 : -1;
+});
+doc.addEventListener('keydown', (e) => {
+  const item = e.target instanceof Element && e.target.closest('[data-avatar-item]');
+  const group = item && item.closest('.astryx-avatar-group');
+  if (!group || e.altKey || e.ctrlKey || e.metaKey) return;
+  const list = [...group.querySelectorAll('[data-avatar-item]')];
+  const i = list.indexOf(item);
+  const rtl = getComputedStyle(group).direction === 'rtl';
+  let next;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = rtl && e.key === 'ArrowRight' ? i - 1 : i + 1;
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = rtl && e.key === 'ArrowLeft' ? i + 1 : i - 1;
+  else if (e.key === 'Home') next = 0;
+  else if (e.key === 'End') next = list.length - 1;
+  else return;
+  e.preventDefault();
+  list[Math.max(0, Math.min(list.length - 1, next))].focus();
+});
+
+// ---------------------------------------------------------------------------------------------
+// Kbd: Apple platforms show ⌘ ⌃ ⌥ ⇧ (the server renders the Ctrl/Alt/Shift form).
+
+const isApple = (() => {
+  const named = navigator.userAgentData?.platform?.trim();
+  if (named) return /mac|ios|iphone|ipad/i.test(named);
+  return /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+})();
+const APPLE_KEYS = { mod: '⌘', meta: '⌘', ctrl: '⌃', alt: '⌥', shift: '⇧' };
+
+function fixKbd(kbd) {
+  const keys = (kbd.dataset.keys ?? '').split('+');
+  const caps = kbd.querySelectorAll(':scope > .astryx-kbd-key');
+  keys.forEach((k, i) => {
+    if (APPLE_KEYS[k] && caps[i] && caps[i].textContent !== APPLE_KEYS[k]) caps[i].textContent = APPLE_KEYS[k];
+  });
+  const label = keys.map((k) => (k === 'mod' ? 'Command' : null));
+  if (label.some(Boolean)) {
+    const parts = (kbd.getAttribute('aria-label') ?? '').split(' + ');
+    const next = parts.map((p, i) => label[i] ?? p).join(' + ');
+    if (next !== kbd.getAttribute('aria-label')) kbd.setAttribute('aria-label', next);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Timestamp: Intl formatting in the viewer's zone. Port of Astryx Timestamp (formatRelativeTime,
+// formatInstant, tooltipEntries), MIT, Meta Platforms, Inc. Gregorian calendar only.
+
+const MINUTE = 60;
+const HOUR = 3600;
+const DAY = 86400;
+const MONTH = 30 * DAY;
+const YEAR = 365 * DAY;
+const FUTURE_SKEW_TOLERANCE = 30;
+
+function formatRelative(date, now, locale, style) {
+  const diff = Math.round((now.getTime() - date.getTime()) / 1000);
+  const abs = Math.abs(diff);
+  const rtf = (numeric) => new Intl.RelativeTimeFormat(locale, { numeric, style });
+  if (abs < 10 || (diff < 0 && abs <= FUTURE_SKEW_TOLERANCE)) return rtf('auto').format(0, 'second');
+  let count;
+  let unit;
+  if (abs < MINUTE) [count, unit] = [abs, 'second'];
+  else if (abs < HOUR) [count, unit] = [Math.floor(abs / MINUTE), 'minute'];
+  else if (abs < DAY) [count, unit] = [Math.floor(abs / HOUR), 'hour'];
+  else if (abs < MONTH) [count, unit] = [Math.floor(abs / DAY), 'day'];
+  else if (abs < YEAR) [count, unit] = [Math.floor(abs / MONTH), 'month'];
+  else [count, unit] = [Math.floor(abs / YEAR), 'year'];
+  const value = diff < 0 ? count : -count;
+  return rtf(style === 'long' && unit === 'day' && value === -1 ? 'auto' : 'always').format(value, unit);
+}
+
+const TIME_OPTIONS = { hour: 'numeric', minute: '2-digit' };
+const INSTANT_OPTIONS = {
+  date: { year: 'numeric', month: 'short', day: 'numeric' },
+  date_long: { year: 'numeric', month: 'long', day: 'numeric' },
+  date_weekday: { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' },
+  date_time: { year: 'numeric', month: 'short', day: 'numeric', ...TIME_OPTIONS },
+  time: TIME_OPTIONS,
+  full: { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' },
+};
+const pad = (n) => String(n).padStart(2, '0');
+
+function wallClock(date, timeZone) {
+  if (!timeZone) {
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate(),
+      hour: date.getHours(),
+      minute: date.getMinutes(),
+      second: date.getSeconds(),
+    };
+  }
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+  }).formatToParts(date);
+  const get = (type) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute'), second: get('second') };
+}
+
+function formatZoneName(date, locale, timeZone) {
+  return (
+    new Intl.DateTimeFormat(locale, { timeZoneName: 'long', ...(timeZone ? { timeZone } : {}) })
+      .formatToParts(date)
+      .find((p) => p.type === 'timeZoneName')?.value ?? ''
+  );
+}
+
+function formatInstant(date, format, locale, { timeZone, isTimezoneShown = false, timeZoneNameStyle = 'short' } = {}) {
+  const zone = timeZone ? { timeZone } : {};
+  const fmt = (options) => new Intl.DateTimeFormat(locale, { ...options, ...zone }).format(date);
+  switch (format) {
+    case 'full':
+      return fmt({ ...INSTANT_OPTIONS.full, timeZoneName: timeZoneNameStyle });
+    case 'date_time':
+    case 'time':
+      return fmt({ ...INSTANT_OPTIONS[format], ...(isTimezoneShown ? { timeZoneName: 'short' } : {}) });
+    case 'system_date': {
+      const w = wallClock(date, timeZone);
+      return `${w.year}-${pad(w.month)}-${pad(w.day)}`;
+    }
+    case 'system_date_time': {
+      const w = wallClock(date, timeZone);
+      return `${w.year}-${pad(w.month)}-${pad(w.day)} ${pad(w.hour)}:${pad(w.minute)}:${pad(w.second)}`;
+    }
+    case 'system_time': {
+      const w = wallClock(date, timeZone);
+      return `${pad(w.hour)}:${pad(w.minute)}:${pad(w.second)}`;
+    }
+    case 'unix_seconds':
+      return String(Math.floor(date.getTime() / 1000));
+    default:
+      return fmt(INSTANT_OPTIONS[format] ?? INSTANT_OPTIONS.date_time);
+  }
+}
+
+/** Unknown zones and "local" resolve to the viewer's zone (undefined). */
+function resolveZone(id) {
+  if (!id || id.toLowerCase() === 'local') return undefined;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: id });
+    return id;
+  } catch {
+    console.warn(`[Timestamp] unknown time zone ${JSON.stringify(id)}. Falling back to the viewer's time zone.`);
+    return undefined;
+  }
+}
+
+const isRelative = (f) => f === 'relative' || f === 'relative_short';
+/** Live relative timestamps and when each is next due. */
+const liveTimes = new Map();
+
+// Focus on the time (or a control it names) holds live refreshes, so a screen reader isn't
+// re-reading a changing label.
+const NAMED_FROM_CONTENT =
+  'button,summary,a[href],[role=button],[role=link],[role=tab],[role^=menuitem],[role=option],[role=radio],[role=checkbox],[role=switch],[role=treeitem]';
+function holdsRefresh(time) {
+  const f = doc.activeElement;
+  return (
+    f === time ||
+    (f != null && f.contains(time) && f.matches(NAMED_FROM_CONTENT) && !f.matches('[aria-label],[aria-labelledby]')) ||
+    (f != null && time.closest('label')?.control === f)
+  );
+}
+
+function renderTime(time, force = false) {
+  const d = time.dataset;
+  const date = new Date(time.getAttribute('datetime') ?? '');
+  if (Number.isNaN(date.getTime())) return;
+  const sig = [time.getAttribute('datetime'), d.format, d.locale, d.timezone, d.threshold, d.timezoneShown, d.live].join('|');
+  if (!force && time._canonSig === sig && time.textContent === time._canonText) return;
+  time._canonSig = sig;
+
+  const now = new Date();
+  const locale = d.locale || 'en-US';
+  const format = d.format || 'auto';
+  const threshold = Number(d.threshold ?? 7 * DAY);
+  const diff = Math.round((now.getTime() - date.getTime()) / 1000);
+  const effective = format === 'auto' ? (Math.abs(diff) <= threshold ? 'relative' : 'date_time') : format;
+  const timeZone = resolveZone(d.timezone);
+  const text = isRelative(effective)
+    ? formatRelative(date, now, locale, effective === 'relative' ? 'long' : 'narrow')
+    : formatInstant(date, effective, locale, { timeZone, isTimezoneShown: d.timezoneShown !== undefined });
+  if (time.textContent !== text) time.textContent = text;
+  time._canonText = text;
+  const host = time.closest('.astryx-timestamp');
+  if (host && host.dataset.timestampFormat !== effective) host.dataset.timestampFormat = effective;
+
+  // The spoken label adds the full date to a relative time (unless the page set its own label).
+  const current = time.getAttribute('aria-label');
+  if (current === null || current === time._canonLabel) {
+    const label = isRelative(effective) ? `${text}, ${formatInstant(date, 'full', locale, { timeZoneNameStyle: 'long' })}` : null;
+    if (label === null) time.removeAttribute('aria-label');
+    else if (label !== current) time.setAttribute('aria-label', label);
+    time._canonLabel = label;
+  }
+
+  // Details tooltip: the default one shows only for relative times.
+  const wrapper = time.parentElement?.matches('.astryx-tooltip-trigger') ? time.parentElement : null;
+  const tipId = wrapper ? (wrapper.dataset.tooltip ?? wrapper._canonTip) : undefined;
+  const details = tipId ? doc.getElementById(tipId)?.querySelector('.astryx-timestamp-details') : null;
+  if (wrapper && details) {
+    wrapper._canonTip = tipId;
+    const isDefault = details.hasAttribute('data-default');
+    const on = !isDefault || isRelative(effective);
+    if (on && !wrapper.dataset.tooltip) wrapper.dataset.tooltip = tipId;
+    if (!on && wrapper.dataset.tooltip) wrapper.removeAttribute('data-tooltip');
+    if (on) time.tabIndex = 0;
+    else time.removeAttribute('tabindex');
+    const rows = [...details.querySelectorAll(':scope > .astryx-timestamp-row')];
+    // The default line is in the viewer's zone; an entry without a zone takes the timestamp's.
+    const zones = rows.map((r) =>
+      isDefault ? undefined : r.dataset.timezone === undefined ? timeZone : resolveZone(r.dataset.timezone),
+    );
+    const keys = new Set(zones.map((z) => (z === undefined ? 'local' : z.toLowerCase())));
+    if (timeZone !== undefined) keys.add(timeZone.toLowerCase());
+    rows.forEach((row, i) => {
+      const fmt = row.dataset.format || 'full';
+      const zone = zones[i];
+      const showZone = fmt === 'full' || ((fmt === 'date_time' || fmt === 'time') && (keys.size > 1 || zone !== undefined));
+      const value = row.querySelector('.astryx-timestamp-value');
+      const v = formatInstant(date, fmt, locale, { timeZone: zone, isTimezoneShown: showZone });
+      if (value && value.textContent !== v) value.textContent = v;
+      const name = row.querySelector('[data-zone-name]');
+      const z = formatZoneName(date, locale, zone);
+      if (name && name.textContent !== z) name.textContent = z;
+    });
+  }
+
+  if (d.live !== undefined && isRelative(effective)) {
+    const abs = Math.abs(diff);
+    const every = abs < MINUTE ? 1000 : abs < HOUR ? 30_000 : abs < DAY ? 60_000 : 300_000;
+    liveTimes.set(time, Date.now() + every);
+  } else liveTimes.delete(time);
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [time, due] of liveTimes) {
+    if (!time.isConnected) liveTimes.delete(time);
+    else if (now >= due && !holdsRefresh(time)) renderTime(time, true);
+  }
+}, 1000);
+// Catch up as soon as focus leaves a held time.
+doc.addEventListener('focusout', () => {
+  queueMicrotask(() => {
+    for (const [time, due] of liveTimes) if (Date.now() >= due && !holdsRefresh(time)) renderTime(time, true);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
 // Wiring markup as it appears (initial page and Datastar patches).
 
 function popoverTrigger(anchor) {
@@ -912,6 +1329,9 @@ function scan() {
     d.setAttribute('aria-labelledby', title.id);
   }
   for (const v of doc.querySelectorAll('.astryx-toast-viewport')) syncViewport(v);
+  checkImages();
+  if (isApple) for (const k of doc.querySelectorAll('.astryx-kbd[data-keys]')) fixKbd(k);
+  for (const t of doc.querySelectorAll('time.astryx-timestamp-time')) renderTime(t);
 }
 
 let scanQueued = false;
@@ -947,8 +1367,9 @@ new MutationObserver((records) => {
     }
   }
   if (raise) homeToasts();
-  // Text edits matter only inside toasts (a morphed toast message restarts its timer).
-  if (records.some((r) => r.type !== 'characterData' || r.target.parentElement?.closest('.astryx-toast'))) {
+  // Text edits matter only inside toasts (a morphed toast message restarts its timer) and
+  // timestamps (a morph puts the server's fallback text back).
+  if (records.some((r) => r.type !== 'characterData' || r.target.parentElement?.closest('.astryx-toast, .astryx-timestamp-time'))) {
     queueScan();
   }
 }).observe(doc.documentElement, {
@@ -964,6 +1385,9 @@ new MutationObserver((records) => {
     'data-popover',
     'data-auto-hide',
     'data-type',
+    'datetime',
+    'src',
+    'data-keys',
   ],
 });
 if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', scan, { once: true });
@@ -992,6 +1416,11 @@ const canon = {
     if (!p) return;
     if (open) safeShow(p);
     else safeHide(p);
+  },
+  /** Expand or collapse a Collapsible or Banner (element or id). */
+  collapse(target, open = true) {
+    const root = resolve(target)?.closest('.astryx-collapsible, .astryx-banner-frame');
+    if (root) setOpen(root, Boolean(open));
   },
   toast,
   /** Re-run wiring now (it also runs on every DOM change). */

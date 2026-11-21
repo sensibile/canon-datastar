@@ -118,6 +118,27 @@ and toast timers. Wire it to Datastar like this:
   While a Dialog is open, canon.js moves the viewport inside it (the rest of the page is inert)
   and puts it back when the Dialog closes, so patch toasts by the viewport's id, not its position.
 
+### Layout and content
+
+Most of these are plain markup. Where Astryx keeps state in the browser, `canon.js` does it and the
+server stays in charge of the first render:
+
+- `Collapsible`, `CollapsibleGroup` (single or multiple open) and `Banner` bodies expand and collapse
+  on click and fire a bubbling `canon-toggle` event (`evt.detail.open`). With `Signal: "details"`
+  the open state mirrors `$details` both ways; `canon.collapse(el, open)` does it from any expression.
+- `Banner` dismiss hides the banner, returns focus to where it came from and fires `canon-dismiss`;
+  add `DismissAttrs` (e.g. `data-on:click="@post('/dismiss')"`) to tell the server.
+- `Avatar` and `Thumbnail` render their fallback hidden next to the image; a failed image switches
+  to `FallbackSrc`, then to the initials, glyph or placeholder.
+- `Token` (`Href` or `Action`), `Avatar` and `Thumbnail` take Datastar actions in `Action`, and
+  removable ones in `RemoveAttrs`. `AvatarGroup` avatars are one tab stop moved with the arrow keys.
+- `MetadataList` renders items past `MaxNumOfItems` hidden behind "Show more".
+- `Kbd` renders the Ctrl form; on Apple platforms it switches to ⌘ ⌃ ⌥ ⇧.
+- `Timestamp` renders `<time datetime>` with a UTC fallback; the browser formats it with Intl in
+  the viewer's zone and locale (relative, absolute or `auto`), keeps `IsLive` times ticking and fills
+  the details tooltip. In Rust the value is Unix milliseconds (`value_ms`).
+- `ProgressBar`: patch it from the server to move it (the demo streams an upload over SSE).
+
 Give each overlay an `ID` when a page has more than one of a kind; defaults are derived from the
 content (`tooltip-<slug>`) or fixed (`popover`, `menu`).
 
@@ -125,7 +146,11 @@ content (`tooltip-<slug>`) or fixed (`popover`, `menu`).
 
 - Content: `Text`, `Heading`, `Icon`, `Badge`, `Spinner`, `VisuallyHidden`
 - Action: `Button`, `IconButton`, `Link`
-- Layout: `Stack`, `HStack`, `VStack`, `Divider`
+- Layout: `Stack`, `HStack`, `VStack`, `Divider`, `Card`, `Section`, `Center`, `Grid`, `GridSpan`,
+  `AspectRatio`, `Collapsible`, `CollapsibleGroup`
+- Display: `Avatar` (with `AvatarStatusDotProps`), `AvatarGroup`, `Token`, `Banner`, `Blockquote`,
+  `Code`, `Kbd`, `EmptyState`, `Skeleton`, `StatusDot`, `ProgressBar`, `MetadataList`, `Thumbnail`,
+  `Timestamp`
 - Form: `Field`, `FieldLabel`, `FieldStatusMessage` / `field_status`, `TextInput`, `CheckboxInput`, `Switch`
 - Overlay: `Tooltip`, `InfoTip`, `Popover`, `Dialog`, `DialogHeader`, `DropdownMenu`,
   `DropdownMenuItem`, `DropdownMenuGroup`, `DropdownMenuDivider`, `TabList` (with `TabProps`),
@@ -137,11 +162,12 @@ a disabled `Button`/`CheckboxInput`/`Switch` uses the native `disabled` attribut
 `clickAction` is replaced by Datastar actions; form controls need an `ID` (otherwise one is derived
 from the label). An indeterminate checkbox and click-blocking on read-only or loading controls use
 Datastar (`data-init`, `data-on:click`). Overlays: `TabList` takes its tabs as data rather than
-children; a Tooltip's `aria-describedby` is added by `canon.js`; opening a modal Dialog closes open
+children (so do `CollapsibleGroup`, `AvatarGroup` and `MetadataList`); a Tooltip's `aria-describedby` is added by `canon.js`; opening a modal Dialog closes open
 popovers (the browser's rule for the top layer); DropdownMenu items are composed as children only.
 Not ported yet: `TextInput` clear button, `disabledMessage`, `labelTooltip`, custom (non built-in)
 icons, Button tooltips, touch long-press and bottom-sheet presentation, menu submenus and
-checkbox/radio items, tab overflow arrows, toast swipe. The remaining Astryx categories come next.
+checkbox/radio items, tab overflow arrows, toast swipe, Collapsible height animation, the
+Timestamp hover card with copy buttons, emoji initials in Avatar. The remaining Astryx categories come next.
 
 ## Develop
 

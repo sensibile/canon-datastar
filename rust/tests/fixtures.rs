@@ -1173,3 +1173,877 @@ fn toast_fixtures() {
         ],
     );
 }
+
+fn ss(v: &[&str]) -> Vec<String> {
+    v.iter().map(|x| s(x)).collect()
+}
+
+#[test]
+fn container_fixtures() {
+    check(
+        "card",
+        vec![
+            ("default", card(&CardProps::default(), child())),
+            (
+                "sized",
+                card(
+                    &CardProps {
+                        variant: s("blue"),
+                        elevation: s("med"),
+                        width: s("320px"),
+                        height: s("200px"),
+                        padding: s("6"),
+                        class: s("x"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+        ],
+    );
+    check(
+        "section",
+        vec![
+            ("default", section(&SectionProps::default(), child())),
+            (
+                "full",
+                section(
+                    &SectionProps {
+                        variant: s("muted"),
+                        dividers: ss(&["top", "end"]),
+                        max_width: s("40rem"),
+                        padding: s("2"),
+                        padding_inline: s("4"),
+                        padding_block_end: s("0.5"),
+                        attrs: vec![attr("data-x", "1")],
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+        ],
+    );
+    check(
+        "center",
+        vec![
+            ("default", center(&CenterProps::default(), child())),
+            (
+                "inline",
+                center(
+                    &CenterProps {
+                        axis: s("vertical"),
+                        is_inline: true,
+                        min_height: s("10rem"),
+                        padding: s("2"),
+                        padding_block_start: s("8"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+        ],
+    );
+    check(
+        "grid",
+        vec![
+            ("default", grid(&GridProps::default(), child())),
+            (
+                "columns",
+                grid(
+                    &GridProps {
+                        columns: 3,
+                        gap: s("2"),
+                        row_height: 80,
+                        align: s("center"),
+                        width: s("100%"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "auto",
+                grid(
+                    &GridProps {
+                        auto: Some(GridAuto {
+                            min_width: 200,
+                            max: 4,
+                            repeat: s("fit"),
+                        }),
+                        column_gap: s("1.5"),
+                        justify: s("end"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "auto-plain",
+                grid(
+                    &GridProps {
+                        auto: Some(GridAuto {
+                            min_width: 160,
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "span",
+                grid_span(
+                    &GridSpanProps {
+                        columns: 2,
+                        rows: 3,
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "span-full",
+                grid_span(
+                    &GridSpanProps {
+                        is_full: true,
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+        ],
+    );
+    check(
+        "aspect-ratio",
+        vec![
+            (
+                "default",
+                aspect_ratio(
+                    &AspectRatioProps {
+                        ratio: 16.0 / 9.0,
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "ellipse",
+                aspect_ratio(
+                    &AspectRatioProps {
+                        ratio: 1.0,
+                        shape: s("ellipse"),
+                        fit: s("cover"),
+                        class: s("x"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn content_fixtures() {
+    check(
+        "blockquote",
+        vec![
+            ("default", blockquote(&BlockquoteProps::default(), child())),
+            (
+                "cite",
+                blockquote(
+                    &BlockquoteProps {
+                        cite: s("Ada <Lovelace>"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+        ],
+    );
+    check(
+        "code",
+        vec![
+            ("default", code(&CodeProps::default(), child())),
+            (
+                "inherit",
+                code(
+                    &CodeProps {
+                        color: s("secondary"),
+                        size: s("inherit"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+        ],
+    );
+    check(
+        "kbd",
+        vec![
+            (
+                "mod",
+                kbd(&KbdProps {
+                    keys: s("mod+shift+P"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "special",
+                kbd(&KbdProps {
+                    keys: s("Esc + return+up+plus+f1"),
+                    class: s("x"),
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+    check(
+        "empty-state",
+        vec![
+            (
+                "default",
+                empty_state(&EmptyStateProps {
+                    title: s("No results"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "full",
+                empty_state(&EmptyStateProps {
+                    title: s("Inbox zero"),
+                    description: s("Nothing new."),
+                    icon: Some(child()),
+                    actions: Some(child()),
+                    heading_level: 2,
+                    is_compact: true,
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+    check(
+        "skeleton",
+        vec![
+            ("default", skeleton(&SkeletonProps::default())),
+            (
+                "sized",
+                skeleton(&SkeletonProps {
+                    width: s("120px"),
+                    height: s("1em"),
+                    radius: s("rounded"),
+                    index: 3,
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+    check(
+        "status-dot",
+        vec![
+            (
+                "default",
+                status_dot(&StatusDotProps {
+                    label: s("Idle"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "tooltip",
+                status_dot(&StatusDotProps {
+                    variant: s("success"),
+                    label: s("Online"),
+                    is_pulsing: true,
+                    tooltip: s("Online now"),
+                    icon: s("check"),
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn progress_bar_fixtures() {
+    let mark = |value: f64, label: &str| ProgressBarMark {
+        value,
+        label: s(label),
+    };
+    check(
+        "progress-bar",
+        vec![
+            (
+                "default",
+                progress_bar(&ProgressBarProps {
+                    label: s("Upload"),
+                    value: 40.0,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "value",
+                progress_bar(&ProgressBarProps {
+                    label: s("Disk"),
+                    value: 2.0,
+                    max: 3.0,
+                    has_value_label: true,
+                    variant: s("warning"),
+                    marks: vec![mark(1.0, "Quota"), mark(2.5, "Limit")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "hidden",
+                progress_bar(&ProgressBarProps {
+                    id: s("p"),
+                    label: s("Sync"),
+                    is_label_hidden: true,
+                    is_indeterminate: true,
+                    is_disabled: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "custom",
+                progress_bar(&ProgressBarProps {
+                    label: s("Steps"),
+                    value: 150.0,
+                    has_value_label: true,
+                    is_label_hidden: true,
+                    value_label: s("3 of 3"),
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn token_fixtures() {
+    let click = || Some(vec![attr("data-on:click", "$f = 1")]);
+    check(
+        "token",
+        vec![
+            (
+                "default",
+                token(&TokenProps {
+                    label: s("Draft"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "link",
+                token(&TokenProps {
+                    label: s("Docs"),
+                    href: s("/docs"),
+                    color: s("blue"),
+                    size: s("sm"),
+                    description: s("Opens docs"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "link-disabled",
+                token(&TokenProps {
+                    label: s("Docs"),
+                    href: s("/docs"),
+                    is_disabled: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "button",
+                token(&TokenProps {
+                    label: s("Filter"),
+                    action: click(),
+                    end_content: Some(child()),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "removable",
+                token(&TokenProps {
+                    label: s("Tag"),
+                    href: s("/t"),
+                    remove_attrs: vec![attr("data-on:click", "@delete('/t')")],
+                    icon: Some(child()),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "removable-plain",
+                token(&TokenProps {
+                    label: s("Tag"),
+                    is_removable: true,
+                    is_label_hidden: true,
+                    remove_name: s("tag one"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled",
+                token(&TokenProps {
+                    label: s("Tag"),
+                    action: click(),
+                    is_disabled: true,
+                    remove_attrs: vec![attr("data-on:click", "@delete('/t')"), attr("title", "x")],
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn avatar_fixtures() {
+    let status = |variant: &str, label: &str, icon: &str| {
+        Some(AvatarStatusDotProps {
+            variant: s(variant),
+            label: s(label),
+            icon: s(icon),
+            ..Default::default()
+        })
+    };
+    let named = |name: &str| AvatarProps {
+        name: s(name),
+        ..Default::default()
+    };
+    check(
+        "avatar",
+        vec![
+            ("initials", avatar(&named("Ada  Byron Lovelace"))),
+            (
+                "icon",
+                avatar(&AvatarProps {
+                    size: s("lg"),
+                    shape: s("rounded"),
+                    has_no_tooltip: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "image",
+                avatar(&AvatarProps {
+                    src: s("/a.png"),
+                    fallback_src: s("/b.png"),
+                    alt: s("Ada L."),
+                    size: s("xl"),
+                    tooltip_id: s("t"),
+                    status: status("", "Online", ""),
+                    ..named("Ada")
+                }),
+            ),
+            (
+                "fallback-src",
+                avatar(&AvatarProps {
+                    fallback_src: s("/b.png"),
+                    pixels: 60,
+                    tooltip: s("Custom"),
+                    status: status("neutral", "Away", ""),
+                    ..named("\"Q\"")
+                }),
+            ),
+            (
+                "link",
+                avatar(&AvatarProps {
+                    href: s("/u/ada"),
+                    shape: s("square"),
+                    has_no_tooltip: true,
+                    status: status("error", "Busy", "close"),
+                    ..named("Ada")
+                }),
+            ),
+            (
+                "button",
+                avatar(&AvatarProps {
+                    alt: s("Me"),
+                    action: Some(vec![attr("data-on:click", "$m = 1")]),
+                    size: s("sm"),
+                    status: status("error", "", ""),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "group",
+                avatar_group(&AvatarGroupProps {
+                    id: s("team"),
+                    size: s("sm"),
+                    shape: s("rounded"),
+                    avatars: vec![
+                        AvatarProps {
+                            tooltip_id: s("t1"),
+                            ..named("Ada")
+                        },
+                        AvatarProps {
+                            href: s("/bo"),
+                            has_no_tooltip: true,
+                            ..named("Bo")
+                        },
+                        AvatarProps {
+                            action: Some(vec![]),
+                            has_no_tooltip: true,
+                            ..named("Cy")
+                        },
+                    ],
+                    overflow: Some(AvatarGroupOverflowProps {
+                        count: 1234,
+                        action: Some(vec![attr("data-on:click", "$all = true")]),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "group-static",
+                avatar_group(&AvatarGroupProps {
+                    avatars: vec![AvatarProps {
+                        has_no_tooltip: true,
+                        ..named("Ada")
+                    }],
+                    overflow: Some(AvatarGroupOverflowProps {
+                        count: 3,
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn banner_fixtures() {
+    check(
+        "banner",
+        vec![
+            (
+                "default",
+                banner(&BannerProps {
+                    title: s("Saved"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "full",
+                banner(&BannerProps {
+                    status: s("warning"),
+                    title: s("Quota"),
+                    description: s("Almost full."),
+                    is_dismissable: true,
+                    dismiss_attrs: vec![attr("data-on:click", "@post('/dismiss')")],
+                    end_content: Some(child()),
+                    elevation: s("low"),
+                    content: Some(child()),
+                    signal: s("more"),
+                    role: s("alert"),
+                    attrs: vec![attr("aria-live", "polite"), attr("data-x", "1")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "open",
+                banner(&BannerProps {
+                    id: s("b"),
+                    status: s("error"),
+                    title: s("Failed"),
+                    content: Some(child()),
+                    is_open: true,
+                    container: s("section"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "static",
+                banner(&BannerProps {
+                    status: s("success"),
+                    title: s("Done"),
+                    content: Some(child()),
+                    is_not_collapsible: true,
+                    icon: Some(child()),
+                    is_dismissable: true,
+                    dismiss_label: s("Close"),
+                    role: s("status"),
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn collapsible_fixtures() {
+    let item = |trigger: &str, value: &str| CollapsibleProps {
+        trigger: s(trigger),
+        value: s(value),
+        content: Some(child()),
+        ..Default::default()
+    };
+    check(
+        "collapsible",
+        vec![
+            (
+                "default",
+                collapsible(
+                    &CollapsibleProps {
+                        trigger: s("Details"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "closed",
+                collapsible(
+                    &CollapsibleProps {
+                        id: s("c"),
+                        trigger: s("More"),
+                        is_closed: true,
+                        chevron_position: s("start"),
+                        signal: s("more"),
+                        class: s("x"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "disabled",
+                collapsible(
+                    &CollapsibleProps {
+                        trigger: s("Nope"),
+                        is_disabled: true,
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "group",
+                collapsible_group(&CollapsibleGroupProps {
+                    value: ss(&["b", "a"]),
+                    has_dividers: true,
+                    items: vec![item("A", "a"), item("B", "b"), item("C", "")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "group-multiple",
+                collapsible_group(&CollapsibleGroupProps {
+                    kind: s("multiple"),
+                    value: ss(&["a", "b"]),
+                    density: s("compact"),
+                    chevron_position: s("start"),
+                    items: vec![
+                        item("A", "a"),
+                        CollapsibleProps {
+                            chevron_position: s("end"),
+                            ..item("B", "b")
+                        },
+                    ],
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn metadata_list_fixtures() {
+    let items = vec![
+        MetadataListItem {
+            label: s("Owner"),
+            text: s("Ada"),
+            ..Default::default()
+        },
+        MetadataListItem {
+            label: s("Status"),
+            value: Some(child()),
+            icon: Some(child()),
+            ..Default::default()
+        },
+        MetadataListItem {
+            label: s("Size"),
+            text: s("3 MB"),
+            class: s("x"),
+            ..Default::default()
+        },
+    ];
+    let list = |p: MetadataListProps| metadata_list(&p);
+    check(
+        "metadata-list",
+        vec![
+            (
+                "default",
+                list(MetadataListProps {
+                    items: items.clone(),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "max",
+                list(MetadataListProps {
+                    id: s("m"),
+                    title: s("File"),
+                    max_num_of_items: 2,
+                    label_width: s("8rem"),
+                    items: items.clone(),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "multi",
+                list(MetadataListProps {
+                    columns: s("multi"),
+                    max_num_of_items: 1,
+                    items: items.clone(),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "columns",
+                list(MetadataListProps {
+                    columns: s("3"),
+                    label_position: s("start"),
+                    items: items.clone(),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "columns-top",
+                list(MetadataListProps {
+                    columns: s("2"),
+                    items: items[..1].to_vec(),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "horizontal",
+                list(MetadataListProps {
+                    orientation: s("horizontal"),
+                    max_num_of_items: 1,
+                    items: items[..2].to_vec(),
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn thumbnail_fixtures() {
+    let open = || Some(vec![attr("data-on:click", "$open = 1")]);
+    check(
+        "thumbnail",
+        vec![
+            ("default", thumbnail(&ThumbnailProps::default())),
+            (
+                "image",
+                thumbnail(&ThumbnailProps {
+                    src: s("/a.png"),
+                    alt: s("A cat"),
+                    label: s("cat.png"),
+                    tooltip_id: s("t"),
+                    action: open(),
+                    remove_attrs: vec![attr("data-on:click", "@delete('/a')")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "loading",
+                thumbnail(&ThumbnailProps {
+                    is_loading: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "uploading",
+                thumbnail(&ThumbnailProps {
+                    src: s("/a.png"),
+                    is_loading: true,
+                    action: open(),
+                    is_removable: true,
+                    show_remove_on: s("always"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled",
+                thumbnail(&ThumbnailProps {
+                    src: s("/a.png"),
+                    alt: s("A"),
+                    is_disabled: true,
+                    is_removable: true,
+                    class: s("x"),
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn timestamp_fixtures() {
+    // 2026-03-04T17:05:09.120+01:00
+    let at = 1_772_640_309_120;
+    let entry = |zone: &str, format: &str, label: &str| TimestampTooltipEntry {
+        timezone_id: s(zone),
+        format: s(format),
+        label: s(label),
+    };
+    check(
+        "timestamp",
+        vec![
+            (
+                "default",
+                timestamp(&TimestampProps {
+                    value_ms: at,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "absolute",
+                timestamp(&TimestampProps {
+                    value_ms: at,
+                    format: s("date"),
+                    timezone_id: s("Asia/Seoul"),
+                    is_timezone_shown: true,
+                    kind: s("body"),
+                    color: s("primary"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "entries",
+                timestamp(&TimestampProps {
+                    id: s("ts"),
+                    value_ms: at,
+                    format: s("relative_short"),
+                    is_live: true,
+                    locale: s("ko-KR"),
+                    auto_threshold: 60,
+                    tooltip_entries: vec![entry("UTC", "date_time", "UTC"), entry("", "", "")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "no-tooltip",
+                timestamp(&TimestampProps {
+                    value_ms: -84_600_000,
+                    format: s("auto"),
+                    auto_threshold: 60,
+                    has_no_tooltip: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "absolute-tip",
+                timestamp(&TimestampProps {
+                    value_ms: at,
+                    format: s("system_date"),
+                    tooltip_entries: vec![entry("local", "full", "")],
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}

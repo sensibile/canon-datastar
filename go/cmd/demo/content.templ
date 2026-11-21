@@ -1,0 +1,163 @@
+package main
+
+import (
+	"time"
+
+	"github.com/sensibile/canon-datastar/go/canon"
+)
+
+templ contentIndex(theme string, mode canon.ThemeMode) {
+	@layout("canon-datastar · Content", theme, mode) {
+		@contentPage()
+	}
+}
+
+templ para(s string) {
+	<p class="demo-panel">{ s }</p>
+}
+
+templ progressBar(value float64) {
+	@canon.ProgressBar(canon.ProgressBarProps{ID: "upload", Label: "Uploading report.pdf", Value: value, HasValueLabel: true,
+		Marks: []canon.ProgressBarMark{{Value: 50, Label: "Halfway"}}, Attrs: []canon.Attr{canon.A("id", "upload-bar")}})
+}
+
+var demoItems = []canon.MetadataListItem{
+	{Label: "Owner", Text: "Ada Lovelace"},
+	{Label: "Status", Value: canon.Badge(canon.BadgeProps{Label: "Active", Variant: "success"})},
+	{Label: "Created", Text: "March 4, 2026"},
+	{Label: "Size", Text: "3.2 MB"},
+	{Label: "Region", Text: "ap-northeast-2"},
+}
+
+templ contentPage() {
+	<h1>Layout and content</h1>
+	<p class="demo-lead">Server-rendered markup; static/canon.js adds collapsing, dismissing, image fallbacks, keyboard models and Intl timestamps.</p>
+	<div data-signals="{details: true, removed: 0, filter: ''}">
+		<section class="demo-section">
+			<h2>Card, Section, Grid, Center, AspectRatio</h2>
+			@canon.Grid(canon.GridProps{Auto: &canon.GridAuto{MinWidth: 200}, Gap: "4"}) {
+				@canon.Card(canon.CardProps{}) {
+					@canon.Heading(canon.HeadingProps{Level: 4}) {
+						Default card
+					}
+					@canon.Section(canon.SectionProps{Variant: "muted", Dividers: []string{"top", "bottom"}}) {
+						A full-bleed section
+					}
+					@canon.Text(canon.TextProps{Type: "supporting"}) {
+						Padding comes from the theme.
+					}
+				}
+				@canon.Card(canon.CardProps{Variant: "blue", Elevation: "med", Padding: "6"}) {
+					Blue, elevated, padding 6
+				}
+				@canon.Card(canon.CardProps{Variant: "muted", MinHeight: "120px"}) {
+					@canon.Center(canon.CenterProps{Height: "100%"}) {
+						Centered
+					}
+				}
+				@canon.GridSpan(canon.GridSpanProps{IsFull: true}) {
+					@canon.Card(canon.CardProps{Variant: "transparent"}) {
+						@canon.AspectRatio(canon.AspectRatioProps{Ratio: 21.0 / 9, Fit: "cover"}) {
+							<img src="/demo/photo.svg" alt="Gradient landscape"/>
+						}
+					}
+				}
+			}
+		</section>
+		@demoSection("Avatar") {
+			@canon.Avatar(canon.AvatarProps{Name: "Ada Lovelace", Size: "lg", Status: &canon.AvatarStatusDotProps{Label: "Online"}})
+			@canon.Avatar(canon.AvatarProps{Name: "Grace Hopper", Src: "/demo/missing.png", FallbackSrc: "/demo/photo.svg", Size: "lg"})
+			@canon.Avatar(canon.AvatarProps{Name: "Broken Image", Src: "/demo/missing.png", Size: "lg", Shape: "rounded"})
+			@canon.Avatar(canon.AvatarProps{Size: "lg", Status: &canon.AvatarStatusDotProps{Variant: "neutral", Label: "Away"}})
+			@canon.Avatar(canon.AvatarProps{Name: "Linus", Size: "xl", Shape: "rounded", Status: &canon.AvatarStatusDotProps{Variant: "error", Label: "Busy"},
+				Action: []canon.Attr{canon.A("data-on:click", "canon.toast({body: 'Opened profile'})")}})
+			@canon.AvatarGroup(canon.AvatarGroupProps{ID: "team", Avatars: []canon.AvatarProps{
+				{Name: "Ada Lovelace", Href: "#ada", HasNoTooltip: true},
+				{Name: "Grace Hopper", Href: "#grace", HasNoTooltip: true},
+				{Name: "Alan Turing", Href: "#alan", HasNoTooltip: true},
+			}, Overflow: &canon.AvatarGroupOverflowProps{Count: 12, Action: []canon.Attr{canon.A("data-on:click", "canon.toast({body: '12 more people'})")}}})
+		}
+		@demoSection("Token") {
+			@canon.Token(canon.TokenProps{Label: "Draft"})
+			@canon.Token(canon.TokenProps{Label: "Docs", Href: "#docs", Color: "blue"})
+			@canon.Token(canon.TokenProps{Label: "Filter: open", Color: "green", Action: []canon.Attr{canon.A("data-on:click", "$filter = 'open'")},
+				RemoveAttrs: []canon.Attr{canon.A("data-on:click", "$removed++")}})
+			@canon.Token(canon.TokenProps{Label: "Disabled", IsRemovable: true, IsDisabled: true})
+			<span class="demo-note" data-text="'filter: ' + $filter + ', removed: ' + $removed"></span>
+		}
+		<section class="demo-section">
+			<h2>Banner</h2>
+			<div class="demo-stack">
+				@canon.Banner(canon.BannerProps{Status: "info", Title: "A new version is available", Description: "Reload to update.", IsDismissable: true})
+				@canon.Banner(canon.BannerProps{ID: "quota", Status: "warning", Title: "Storage almost full", Signal: "details", IsOpen: true,
+					Content: para("You have used 9.1 GB of 10 GB. The body's open state is the $details signal.")})
+				@canon.Banner(canon.BannerProps{Status: "error", Title: "Deploy failed", Container: "section", Elevation: "low",
+					EndContent: canon.Button(canon.ButtonProps{Label: "Retry", Size: "sm"}), IsDismissable: true})
+				<span class="demo-note" data-text="'details open: ' + $details"></span>
+			</div>
+		</section>
+		<section class="demo-section">
+			<h2>Collapsible</h2>
+			<div class="demo-stack">
+				@canon.Collapsible(canon.CollapsibleProps{Trigger: "Standalone, open by default"}) {
+					Content shows when open.
+				}
+				@canon.CollapsibleGroup(canon.CollapsibleGroupProps{Value: []string{"a"}, HasDividers: true, Items: []canon.CollapsibleProps{
+					{Trigger: "Accordion item A", Value: "a", Content: para("Opening B closes A: this group is \"single\".")},
+					{Trigger: "Accordion item B", Value: "b", Content: para("Only one item is open at a time.")},
+					{Trigger: "Disabled", Value: "c", IsDisabled: true},
+				}})
+			</div>
+		</section>
+		<section class="demo-section">
+			<h2>ProgressBar</h2>
+			<div class="demo-stack">
+				@progressBar(20)
+				@canon.ProgressBar(canon.ProgressBarProps{Label: "Syncing", IsIndeterminate: true, Variant: "success"})
+				<div class="demo-row">
+					@canon.Button(canon.ButtonProps{Label: "Upload (SSE)", Attrs: []canon.Attr{canon.A("data-on:click", "@post('/demo/progress')")}})
+				</div>
+			</div>
+		</section>
+		<section class="demo-section">
+			<h2>MetadataList</h2>
+			@canon.MetadataList(canon.MetadataListProps{ID: "file-meta", Title: "File details", MaxNumOfItems: 3, Items: demoItems})
+		</section>
+		@demoSection("Thumbnail") {
+			@canon.Thumbnail(canon.ThumbnailProps{Src: "/demo/photo.svg", Alt: "Gradient", Label: "photo.svg", TooltipID: "thumb-1",
+				Action: []canon.Attr{canon.A("data-on:click", "canon.toast({body: 'Opened photo.svg'})")}, RemoveAttrs: []canon.Attr{canon.A("data-on:click", "$removed++")}})
+			@canon.Thumbnail(canon.ThumbnailProps{Src: "/demo/photo.svg", IsLoading: true})
+			@canon.Thumbnail(canon.ThumbnailProps{IsLoading: true})
+			@canon.Thumbnail(canon.ThumbnailProps{Src: "/demo/missing.png", Label: "missing.png", TooltipID: "thumb-2"})
+		}
+		@demoSection("Timestamp") {
+			@canon.Timestamp(canon.TimestampProps{ID: "ts-1", Value: time.Now().Add(-90 * time.Second), IsLive: true})
+			@canon.Timestamp(canon.TimestampProps{ID: "ts-2", Value: time.Now().Add(-26 * time.Hour)})
+			@canon.Timestamp(canon.TimestampProps{ID: "ts-3", Value: time.Date(2025, 12, 24, 18, 30, 0, 0, time.UTC), Format: "date_long",
+				TooltipEntries: []canon.TimestampTooltipEntry{{TimezoneID: "Asia/Seoul", Format: "date_time", Label: "Seoul"}, {TimezoneID: "UTC", Format: "system_date_time", Label: "UTC"}}})
+			@canon.Timestamp(canon.TimestampProps{ID: "ts-4", Value: time.Now().Add(-3 * time.Hour), Format: "relative_short", Locale: "ko-KR"})
+		}
+		@demoSection("Kbd, Code, StatusDot, Skeleton") {
+			@canon.Kbd(canon.KbdProps{Keys: "mod+k"})
+			@canon.Kbd(canon.KbdProps{Keys: "shift+enter"})
+			@canon.Code(canon.CodeProps{}) {
+				go run ./go/cmd/demo
+			}
+			@canon.StatusDot(canon.StatusDotProps{Variant: "success", Label: "Online", Tooltip: "Online", IsPulsing: true})
+			@canon.StatusDot(canon.StatusDotProps{Variant: "error", Label: "Offline"})
+			@canon.Skeleton(canon.SkeletonProps{Width: "120px", Height: "16px"})
+			@canon.Skeleton(canon.SkeletonProps{Width: "32px", Height: "32px", Radius: "rounded", Index: 1})
+		}
+		<section class="demo-section">
+			<h2>Blockquote and EmptyState</h2>
+			@canon.Blockquote(canon.BlockquoteProps{Cite: "Ada Lovelace"}) {
+				The Analytical Engine weaves algebraic patterns just as the Jacquard loom weaves flowers and leaves.
+			}
+			@canon.Card(canon.CardProps{}) {
+				@canon.EmptyState(canon.EmptyStateProps{Title: "No projects yet", Description: "Create a project to get started.",
+					Icon: canon.Icon(canon.IconProps{Name: "search", Size: "lg", Color: "secondary"}),
+					Actions: canon.Button(canon.ButtonProps{Label: "New project", Variant: "primary"})})
+			}
+		</section>
+	</div>
+}

@@ -1,0 +1,110 @@
+/* ProgressBar. Port of Astryx packages/core/src/ProgressBar (MIT, Meta Platforms, Inc.).
+ * Markup: <div class="astryx-progress-bar" data-variant>
+ *   <div class="astryx-progress-bar-header"><span class="astryx-progress-bar-label">…</span>[<span class="astryx-progress-bar-value">]</div>
+ *   <div class="astryx-progress-bar-track-container"><div role="progressbar" class="astryx-progress-bar-track">
+ *     <div class="astryx-progress-bar-fill" data-mode="determinate|indeterminate" data-variant style="--_progress-bar-fill: N%">
+ *   [marks: <span class="astryx-progress-bar-mark" data-placement="fill|track" style="inset-inline-start: N%">] */
+@layer astryx-base {
+  .astryx-progress-bar { display: flex; flex-direction: column; gap: var(--spacing-1); width: 100%; min-width: 48px; }
+  .astryx-progress-bar-header { display: flex; justify-content: space-between; align-items: baseline; }
+  .astryx-progress-bar-label {
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+  }
+  .astryx-progress-bar-value {
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-secondary);
+  }
+  .astryx-progress-bar:is([data-disabled]) :is(.astryx-progress-bar-label, .astryx-progress-bar-value) { color: var(--color-text-disabled); }
+  .astryx-progress-bar-label[data-hidden] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  .astryx-progress-bar-track-container { position: relative; width: 100%; }
+  .astryx-progress-bar-track {
+    width: 100%;
+    height: 8px;
+    background-color: var(--color-background-muted);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+  .astryx-progress-bar[data-disabled] .astryx-progress-bar-track { opacity: 0.5; }
+
+  .astryx-progress-bar-fill { height: 100%; border-radius: var(--radius-full); }
+  .astryx-progress-bar-fill[data-mode='determinate'] {
+    width: 100%;
+    transform: translateX(calc(var(--_progress-bar-fill, 0%) - 100%));
+    will-change: transform;
+    transition: transform var(--duration-medium) var(--ease-standard);
+  }
+  .astryx-progress-bar-fill[data-mode='determinate']:dir(rtl) { transform: translateX(calc(100% - var(--_progress-bar-fill, 0%))); }
+  .astryx-progress-bar-fill[data-mode='indeterminate'] {
+    width: 40%;
+    animation: astryx-progress-slide 1.5s ease-in-out infinite;
+  }
+  [dir='rtl'] .astryx-progress-bar-fill[data-mode='indeterminate'] { animation-name: astryx-progress-slide-rtl; }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-progress-bar-fill[data-mode='determinate'] { transition-duration: 0s; }
+    .astryx-progress-bar-fill[data-mode='indeterminate'],
+    [dir='rtl'] .astryx-progress-bar-fill[data-mode='indeterminate'] {
+      width: 100%;
+      animation: astryx-progress-pulse 2000ms var(--ease-standard) infinite alternate;
+    }
+  }
+  @media (forced-colors: active) {
+    .astryx-progress-bar-fill { outline: 1px solid CanvasText; outline-offset: -1px; }
+    .astryx-progress-bar-fill[data-variant='disabled'] { outline-color: GrayText; }
+    .astryx-progress-bar-fill[data-mode='determinate'],
+    .astryx-progress-bar-fill[data-mode='determinate']:dir(rtl) {
+      width: var(--_progress-bar-fill, 0%);
+      transform: none;
+      will-change: auto;
+      transition-property: width;
+    }
+  }
+  .astryx-progress-bar-fill[data-variant='accent'] { background-color: var(--color-accent); }
+  .astryx-progress-bar-fill[data-variant='success'] { background-color: var(--color-text-success); }
+  .astryx-progress-bar-fill[data-variant='warning'] { background-color: var(--color-text-warning); }
+  .astryx-progress-bar-fill[data-variant='error'] { background-color: var(--color-text-error); }
+  .astryx-progress-bar-fill:is([data-variant='neutral'], [data-variant='disabled']) { background-color: var(--color-text-secondary); }
+
+  .astryx-progress-bar-mark {
+    position: absolute;
+    top: 50%;
+    width: var(--_progressbar-mark-width, 2px);
+    height: var(--_progressbar-mark-height, 8px);
+    transform: translate(-50%, -50%);
+    background-color: var(--color-text-primary);
+  }
+  [dir='rtl'] .astryx-progress-bar-mark { transform: translate(50%, -50%); }
+  .astryx-progress-bar-mark:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: 2px;
+  }
+  .astryx-progress-bar-mark[data-placement='track'][data-variant='disabled'] { background-color: var(--color-text-secondary); }
+  .astryx-progress-bar-mark[data-placement='fill'] { background-color: var(--color-background-surface); }
+  .astryx-progress-bar-mark[data-placement='fill'][data-variant='accent'] { background-color: var(--color-on-accent); }
+}
+@keyframes astryx-progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+@keyframes astryx-progress-slide-rtl {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-250%); }
+}
+@keyframes astryx-progress-pulse {
+  from { opacity: 1; }
+  to { opacity: 0.84; }
+}

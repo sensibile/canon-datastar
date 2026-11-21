@@ -1,0 +1,33 @@
+/* Timestamp. Port of Astryx packages/core/src/Timestamp (MIT, Meta Platforms, Inc.).
+ * Markup: <span class="astryx-text astryx-timestamp" data-format …>
+ *   <time class="astryx-timestamp-time" datetime>…</time></span>
+ * Details tooltip body: <dl class="astryx-timestamp-details" [data-labelled]>
+ *   <div class="astryx-timestamp-row"><dt class="astryx-timestamp-label|-sr-dt"><dd class="astryx-timestamp-value"> */
+@layer astryx-base {
+  .astryx-timestamp-time { display: inline; font: inherit; color: inherit; }
+  .astryx-timestamp-time:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: 2px;
+    border-radius: var(--radius-inline, 2px);
+  }
+  .astryx-timestamp-details {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: center;
+    column-gap: var(--spacing-4);
+    row-gap: var(--spacing-1);
+    margin: 0;
+    padding: 0;
+  }
+  .astryx-timestamp-details[data-labelled] { grid-template-columns: auto 1fr; }
+  .astryx-timestamp-row { display: contents; }
+  .astryx-timestamp-label {
+    margin: 0;
+    opacity: 0.75;
+    font-size: var(--text-supporting-size);
+    line-height: var(--text-supporting-leading);
+    white-space: nowrap;
+  }
+  .astryx-timestamp-sr-dt { display: contents; }
+  .astryx-timestamp-value { margin: 0; white-space: nowrap; }
+}

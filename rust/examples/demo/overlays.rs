@@ -207,7 +207,7 @@ pub(crate) fn page() -> Markup {
                 h3 { "Navigation" }
                 (tab_list(&TabListProps {
                     value: s("/overlays"), size: s("sm"), label: s("Demo pages"),
-                    tabs: [("/", "Tokens"), ("/components", "Components"), ("/overlays", "Overlays")]
+                    tabs: [("/", "Tokens"), ("/components", "Components"), ("/content", "Content"), ("/overlays", "Overlays")]
                         .iter()
                         .map(|(v, l)| TabProps { value: s(v), label: s(l), href: s(v), ..Default::default() })
                         .collect(),

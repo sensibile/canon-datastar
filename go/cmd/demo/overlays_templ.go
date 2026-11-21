@@ -697,6 +697,7 @@ func overlaysPage() templ.Component {
 		templ_7745c5c3_Err = canon.TabList(canon.TabListProps{Value: "/overlays", Size: "sm", Label: "Demo pages", Tabs: []canon.TabProps{
 			{Value: "/", Label: "Tokens", Href: "/"},
 			{Value: "/components", Label: "Components", Href: "/components"},
+			{Value: "/content", Label: "Content", Href: "/content"},
 			{Value: "/overlays", Label: "Overlays", Href: "/overlays"},
 		}}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {

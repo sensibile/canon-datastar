@@ -1,6 +1,7 @@
 //! canon-datastar gallery: `cargo run --example demo` (from rust/). Mirrors go/cmd/demo.
 
 mod components;
+mod content;
 mod overlays;
 
 use axum::{
@@ -149,6 +150,7 @@ pub(crate) fn layout(title: &str, name: &str, mode: ThemeMode, content: Markup) 
                                 strong { "canon-datastar" } " "
                                 a href="/" data-attr:href=(nav_expr("/")) { "Tokens" } " "
                                 a href="/components" data-attr:href=(nav_expr("/components")) { "Components" } " "
+                                a href="/content" data-attr:href=(nav_expr("/content")) { "Content" } " "
                                 a href="/overlays" data-attr:href=(nav_expr("/overlays")) { "Overlays" }
                             }
                             div.demo-controls {
@@ -246,6 +248,22 @@ async fn components_index(Query(q): Query<ThemeQuery>) -> Markup {
     )
 }
 
+async fn content_index(Query(q): Query<ThemeQuery>) -> Markup {
+    let (name, mode) = theme_from_query(&q);
+    layout("canon-datastar · Content", name, mode, content::page())
+}
+
+/// ProgressBar over SSE: patches the bar as the "upload" advances; Datastar morphs it in place.
+async fn demo_progress() -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    Sse::new(stream::iter(0..=10).then(|i| async move {
+        if i > 0 {
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
+        let bar = content::progress(f64::from(i * 10));
+        Ok(PatchElements::new(bar.into_string()).write_as_axum_sse_event())
+    }))
+}
+
 async fn overlays_index(Query(q): Query<ThemeQuery>) -> Markup {
     let (name, mode) = theme_from_query(&q);
     layout("canon-datastar · Overlays", name, mode, overlays::page())
@@ -325,7 +343,9 @@ async fn main() {
     let app = Router::new()
         .route("/", get(index))
         .route("/components", get(components_index))
+        .route("/content", get(content_index))
         .route("/overlays", get(overlays_index))
+        .route("/demo/progress", post(demo_progress))
         .route("/demo/save", post(save))
         .route("/demo/toast", post(demo_toast))
         .route("/demo/delete", post(demo_delete))
