@@ -690,17 +690,22 @@ const toastTimers = new WeakMap();
  * (an overwrite shows new content, so it gets the full duration again). */
 function startToast(toast, restart = false) {
   const config = toast.dataset.autoHide ?? '';
+  // What the toast says: a server patch (morphed in place) that changes it is a new message.
+  const content = `${toast.dataset.type}|${toast.querySelector('.astryx-toast-content')?.innerHTML}|${
+    toast.querySelector('.astryx-toast-end')?.textContent ?? ''
+  }`;
   let state = toastTimers.get(toast);
   if (state) {
-    if (state.config === config && !restart) return;
+    if (state.config === config && state.content === content && !restart) return;
     clearTimeout(state.timer);
     state.timer = 0;
     state.config = config;
+    state.content = content;
     state.remaining = Number(config);
     state.run();
     return;
   }
-  state = { config, remaining: Number(config), startedAt: 0, timer: 0, pauses: new Set() };
+  state = { config, content, remaining: Number(config), startedAt: 0, timer: 0, pauses: new Set() };
   toastTimers.set(toast, state);
   const run = () => {
     if (!state.remaining || state.pauses.size > 0 || state.timer) return;
@@ -924,12 +929,24 @@ new MutationObserver((records) => {
     }
   }
   if (raise) homeToasts();
-  queueScan();
+  // Text edits matter only inside toasts (a morphed toast message restarts its timer).
+  if (records.some((r) => r.type !== 'characterData' || r.target.parentElement?.closest('.astryx-toast'))) {
+    queueScan();
+  }
 }).observe(doc.documentElement, {
   childList: true,
   subtree: true,
+  characterData: true,
   attributes: true,
-  attributeFilter: ['open', 'popovertarget', 'aria-describedby', 'data-tooltip', 'data-popover', 'data-auto-hide'],
+  attributeFilter: [
+    'open',
+    'popovertarget',
+    'aria-describedby',
+    'data-tooltip',
+    'data-popover',
+    'data-auto-hide',
+    'data-type',
+  ],
 });
 if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', scan, { once: true });
 else scan();
