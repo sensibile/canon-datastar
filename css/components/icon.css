@@ -1,0 +1,38 @@
+/* Icon. Port of Astryx packages/core/src/Icon (MIT, Meta Platforms, Inc.).
+ * Markup: <span class="astryx-icon" data-size data-color aria-hidden="true"><svg>…</svg></span> */
+@layer astryx-base {
+  .astryx-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: var(--_icon-width, var(--_s));
+    height: var(--_icon-height, var(--_s));
+    font-size: min(var(--_icon-width, var(--_s)), var(--_icon-height, var(--_s)));
+  }
+  .astryx-icon > svg { width: 100%; height: 100%; }
+  .astryx-icon[data-size='xsm'] { --_s: 0.75rem; }
+  .astryx-icon[data-size='sm'] { --_s: 1rem; }
+  .astryx-icon[data-size='md'] { --_s: 1.25rem; }
+  .astryx-icon[data-size='lg'] { --_s: 1.5rem; }
+
+  .astryx-icon[data-color='primary'] { color: var(--color-icon-primary); }
+  .astryx-icon:is([data-color='secondary'], [data-color='tertiary']) { color: var(--color-icon-secondary); }
+  .astryx-icon[data-color='disabled'] { color: var(--color-icon-disabled); }
+  .astryx-icon[data-color='accent'] { color: var(--color-accent); }
+  .astryx-icon[data-color='info'] { color: var(--color-icon-info); }
+  .astryx-icon[data-color='success'] { color: var(--color-icon-success); }
+  .astryx-icon[data-color='error'] { color: var(--color-icon-error); }
+  .astryx-icon[data-color='warning'] { color: var(--color-icon-warning); }
+  .astryx-icon[data-color='inherit'] { color: inherit; }
+  .astryx-icon[data-color='blue'] { color: var(--color-icon-blue); }
+  .astryx-icon[data-color='red'] { color: var(--color-icon-red); }
+  .astryx-icon[data-color='green'] { color: var(--color-icon-green); }
+  .astryx-icon[data-color='gray'] { color: var(--color-icon-gray); }
+  .astryx-icon[data-color='cyan'] { color: var(--color-icon-cyan); }
+  .astryx-icon[data-color='teal'] { color: var(--color-icon-teal); }
+  .astryx-icon[data-color='yellow'] { color: var(--color-icon-yellow); }
+  .astryx-icon[data-color='orange'] { color: var(--color-icon-orange); }
+  .astryx-icon[data-color='pink'] { color: var(--color-icon-pink); }
+  .astryx-icon[data-color='purple'] { color: var(--color-icon-purple); }
+}

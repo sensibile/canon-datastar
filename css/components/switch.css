@@ -1,0 +1,88 @@
+/* Switch. Port of Astryx packages/core/src/Switch (MIT, Meta Platforms, Inc.).
+ * The track follows the native input's :checked state (works with forms and Datastar data-bind).
+ * Markup: <div class="astryx-switch-field" [data-label-position="start"] [data-label-spacing="spread"]>
+ *   <div class="astryx-switch-container" [data-label-hidden] [data-disabled]>
+ *     <div class="astryx-switch-control"><input type="checkbox" role="switch">
+ *       <div class="astryx-switch" data-size><div class="astryx-switch-thumb" data-size>
+ *     <div class="astryx-switch-label-wrapper" data-size> FieldLabel */
+@layer astryx-base {
+  .astryx-switch-container { display: flex; align-items: center; gap: var(--_switch-field-gap, var(--spacing-2)); }
+  .astryx-switch-container[data-label-hidden] { gap: 0; }
+  .astryx-switch-field[data-label-spacing='spread'] > .astryx-switch-container { justify-content: space-between; width: 100%; }
+  .astryx-switch-field > .astryx-field-status { margin-top: var(--spacing-2); }
+  .astryx-switch-control { position: relative; display: flex; align-items: center; flex-shrink: 0; isolation: isolate; }
+  .astryx-switch-container:not([data-disabled]) .astryx-switch-control { touch-action: pan-y pinch-zoom; }
+  .astryx-switch-control > input {
+    position: absolute;
+    top: 50%;
+    inset-inline-start: 50%;
+    width: 100%;
+    height: 100%;
+    translate: -50% -50%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+  }
+  [dir='rtl'] .astryx-switch-control > input { translate: 50% -50%; }
+  .astryx-switch-control > input:disabled { cursor: default; }
+  .astryx-switch-control > input[aria-busy='true'] { pointer-events: none; }
+  .astryx-switch {
+    display: flex;
+    align-items: center;
+    container-type: size;
+    box-sizing: border-box;
+    border-radius: var(--radius-full);
+    border: 0 none;
+    background-color: var(--color-background-gray);
+    transition: background-color var(--duration-fast) var(--ease-standard);
+  }
+  .astryx-switch[data-size='sm'] { width: 32px; height: 20px; padding: 2px; }
+  .astryx-switch[data-size='md'] { width: 40px; height: 24px; padding: 4px; }
+  :checked + .astryx-switch { background-color: var(--color-accent); }
+  @media (hover: hover) {
+    .astryx-switch-container:not([data-disabled]):hover :not(:checked) + .astryx-switch { background-color: color-mix(in srgb, var(--color-background-gray), var(--color-tint-hover) 5%); }
+    .astryx-switch-container:not([data-disabled]):hover :checked + .astryx-switch { background-color: color-mix(in srgb, var(--color-accent), var(--color-tint-hover) 15%); }
+  }
+  .astryx-switch-container:not([data-disabled]):active :is(.astryx-switch, .astryx-switch-thumb) {
+    background-image: linear-gradient(var(--color-overlay-pressed), var(--color-overlay-pressed));
+  }
+  :focus-visible + .astryx-switch {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: var(--focus-outline-offset);
+  }
+  :disabled + .astryx-switch { opacity: 0.5; }
+  :disabled:not(:checked) + .astryx-switch { background-color: var(--color-background-gray); }
+  .astryx-switch-thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: var(--color-background-surface);
+    transition-property: transform, width, height;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+    transform: translateX(calc(50cqb - 50%));
+  }
+  :checked + .astryx-switch > .astryx-switch-thumb { transform: translateX(calc(100cqi - 50cqb - 50%)); }
+  [dir='rtl'] .astryx-switch-thumb { transform: translateX(calc(-1 * (50cqb - 50%))); }
+  [dir='rtl'] :checked + .astryx-switch > .astryx-switch-thumb { transform: translateX(calc(-1 * (100cqi - 50cqb - 50%))); }
+  .astryx-switch-thumb[data-size='sm'] { width: var(--_switch-thumb-width, 14px); height: var(--_switch-thumb-height, 14px); }
+  :checked + .astryx-switch > .astryx-switch-thumb[data-size='sm'] { width: var(--_switch-thumb-width, 16px); height: var(--_switch-thumb-height, 16px); }
+  .astryx-switch-thumb[data-size='md'] { width: var(--_switch-thumb-width, 16px); height: var(--_switch-thumb-height, 16px); }
+  :checked + .astryx-switch > .astryx-switch-thumb[data-size='md'] { width: var(--_switch-thumb-width, 20px); height: var(--_switch-thumb-height, 20px); }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-switch, .astryx-switch-thumb { transition-duration: 0s; }
+  }
+  @media (forced-colors: active) {
+    .astryx-switch { border: 1px solid CanvasText; background-color: Canvas; }
+    :checked + .astryx-switch { background-color: Highlight; }
+    :disabled + .astryx-switch { border-color: GrayText; }
+    .astryx-switch-thumb { background-color: CanvasText; }
+    :checked + .astryx-switch > .astryx-switch-thumb { background-color: HighlightText; }
+  }
+  .astryx-switch-label-wrapper { display: flex; flex-direction: column; justify-content: center; }
+  .astryx-switch-label-wrapper[data-size='sm'] { min-height: 20px; }
+  .astryx-switch-label-wrapper[data-size='md'] { min-height: 24px; }
+}

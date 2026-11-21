@@ -1,0 +1,42 @@
+/* Link. Port of Astryx packages/core/src/Link (MIT, Meta Platforms, Inc.).
+ * Markup: <a|button class="astryx-link" data-color [data-underline] [data-standalone]
+ *   [aria-disabled="true"] [data-truncating]><span class="astryx-text astryx-link-label">… */
+@layer astryx-base {
+  .astryx-link {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    gap: var(--spacing-0-5);
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    font-weight: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    outline: 0 none;
+    transition-property: color, text-decoration;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+  }
+  .astryx-link:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: var(--focus-outline-offset);
+  }
+  @media (hover: hover) {
+    .astryx-link:not([aria-disabled='true']):hover { text-decoration: underline; }
+    .astryx-link[data-color='primary']:not([aria-disabled='true']):hover { color: color-mix(in srgb, var(--color-text-primary), var(--color-tint-hover) 15%); }
+    .astryx-link[data-color='secondary']:not([aria-disabled='true']):hover { color: color-mix(in srgb, var(--color-text-secondary), var(--color-tint-hover) 15%); }
+    .astryx-link[data-color='accent']:not([aria-disabled='true']):hover { color: var(--link-hover-color, color-mix(in srgb, var(--color-text-accent), var(--color-tint-hover) 15%)); }
+  }
+  .astryx-link[data-color='primary'] { color: var(--color-text-primary); }
+  .astryx-link:is([data-color='secondary'], [data-color='placeholder']) { color: var(--color-text-secondary); }
+  .astryx-link[data-color='disabled'] { color: var(--color-text-disabled); }
+  .astryx-link[data-color='accent'] { color: var(--color-text-accent); }
+  .astryx-link[data-color='inherit'] { color: inherit; }
+  button.astryx-link { background-color: transparent; border-style: none; padding: 0; text-align: inherit; position: relative; }
+  .astryx-link[data-underline] { text-decoration: underline; }
+  .astryx-link[aria-disabled='true'] { cursor: default; opacity: 0.5; }
+  .astryx-link[data-standalone] { font-size: var(--text-body-size); line-height: var(--text-body-leading); }
+  .astryx-link[data-truncating] { min-width: 0; }
+  .astryx-link-label { min-width: 0; }
+}

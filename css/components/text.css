@@ -1,0 +1,64 @@
+/* Text and Heading. Port of Astryx packages/core/src/Text, Heading (MIT, Meta Platforms, Inc.).
+ * Markup: <span class="astryx-text" data-type data-color [data-size] [data-weight] [data-display]
+ *   [data-truncate="single|multi" data-word-break] [data-justify] [data-wrap] [data-capsize]
+ *   [data-strikethrough] [data-tabular]>; Heading is <hN class="astryx-heading" data-level ...>. */
+@layer astryx-base {
+  .astryx-heading { margin: 0; font-family: var(--font-family-heading, var(--font-family-body)); }
+
+  :is(.astryx-text, .astryx-heading)[data-color='primary'] { color: var(--color-text-primary); }
+  :is(.astryx-text, .astryx-heading):is([data-color='secondary'], [data-color='placeholder']) { color: var(--color-text-secondary); }
+  :is(.astryx-text, .astryx-heading)[data-color='disabled'] { color: var(--color-text-disabled); }
+  :is(.astryx-text, .astryx-heading)[data-color='accent'] { color: var(--color-text-accent); }
+  :is(.astryx-text, .astryx-heading)[data-color='inherit'] { color: inherit; }
+
+  .astryx-text[data-type='body'] { font-size: var(--text-body-size); line-height: var(--text-body-leading); font-weight: var(--text-body-weight); }
+  .astryx-text[data-type='large'] { font-size: var(--text-large-size); line-height: var(--text-large-leading); font-weight: var(--text-large-weight); }
+  .astryx-text[data-type='label'] { font-size: var(--text-label-size); line-height: var(--text-label-leading); font-weight: var(--text-label-weight); }
+  .astryx-text[data-type='supporting'] { font-size: var(--text-supporting-size); line-height: var(--text-supporting-leading); font-weight: var(--text-supporting-weight); }
+  .astryx-text[data-type='code'] { font-size: var(--text-code-size); line-height: var(--text-code-leading); font-weight: var(--text-code-weight); font-family: var(--font-family-code); }
+  .astryx-text[data-type='inherit'] { font-size: inherit; line-height: inherit; font-weight: inherit; }
+  .astryx-heading[data-level='1'] { font-size: var(--text-heading-1-size); line-height: var(--text-heading-1-leading); font-weight: var(--text-heading-1-weight); }
+  .astryx-heading[data-level='2'] { font-size: var(--text-heading-2-size); line-height: var(--text-heading-2-leading); font-weight: var(--text-heading-2-weight); }
+  .astryx-heading[data-level='3'] { font-size: var(--text-heading-3-size); line-height: var(--text-heading-3-leading); font-weight: var(--text-heading-3-weight); }
+  .astryx-heading[data-level='4'] { font-size: var(--text-heading-4-size); line-height: var(--text-heading-4-leading); font-weight: var(--text-heading-4-weight); }
+  .astryx-heading[data-level='5'] { font-size: var(--text-heading-5-size); line-height: var(--text-heading-5-leading); font-weight: var(--text-heading-5-weight); }
+  .astryx-heading[data-level='6'] { font-size: var(--text-heading-6-size); line-height: var(--text-heading-6-leading); font-weight: var(--text-heading-6-weight); }
+  :is(.astryx-text, .astryx-heading)[data-type='display-1'] { font-size: var(--text-display-1-size); line-height: var(--text-display-1-leading); font-weight: var(--text-display-1-weight); }
+  :is(.astryx-text, .astryx-heading)[data-type='display-2'] { font-size: var(--text-display-2-size); line-height: var(--text-display-2-leading); font-weight: var(--text-display-2-weight); }
+  :is(.astryx-text, .astryx-heading)[data-type='display-3'] { font-size: var(--text-display-3-size); line-height: var(--text-display-3-leading); font-weight: var(--text-display-3-weight); }
+
+  .astryx-text[data-size='4xs'] { font-size: var(--font-size-4xs); }
+  .astryx-text[data-size='3xs'] { font-size: var(--font-size-3xs); }
+  .astryx-text[data-size='2xs'] { font-size: var(--font-size-2xs); }
+  .astryx-text[data-size='xsm'] { font-size: var(--font-size-xs); }
+  .astryx-text[data-size='sm'] { font-size: var(--font-size-sm); }
+  .astryx-text[data-size='base'] { font-size: var(--font-size-base); }
+  .astryx-text[data-size='lg'] { font-size: var(--font-size-lg); }
+  .astryx-text[data-size='xl'] { font-size: var(--font-size-xl); }
+  .astryx-text[data-size='2xl'] { font-size: var(--font-size-2xl); }
+  .astryx-text[data-size='3xl'] { font-size: var(--font-size-3xl); }
+  .astryx-text[data-size='4xl'] { font-size: var(--font-size-4xl); }
+
+  :is(.astryx-text, .astryx-heading)[data-weight='normal'] { font-weight: var(--font-weight-normal); }
+  :is(.astryx-text, .astryx-heading)[data-weight='medium'] { font-weight: var(--font-weight-medium); }
+  :is(.astryx-text, .astryx-heading)[data-weight='semibold'] { font-weight: var(--font-weight-semibold); }
+  :is(.astryx-text, .astryx-heading)[data-weight='bold'] { font-weight: var(--font-weight-bold); }
+
+  :is(.astryx-text, .astryx-heading)[data-display='inline'] { display: inline; overflow-wrap: var(--_astryx-text-overflow-wrap, break-word); }
+  :is(.astryx-text, .astryx-heading)[data-display='block'] { display: block; overflow-wrap: var(--_astryx-text-overflow-wrap, break-word); }
+  :is(.astryx-text, .astryx-heading)[data-truncate='single'] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  :is(.astryx-text, .astryx-heading)[data-truncate='multi'] { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; }
+  :is(.astryx-text, .astryx-heading)[data-word-break='break-word'] { word-break: normal; overflow-wrap: break-word; }
+  :is(.astryx-text, .astryx-heading)[data-word-break='break-all'] { word-break: break-all; }
+  :is(.astryx-text, .astryx-heading)[data-wrap='wrap'] { text-wrap: wrap; }
+  :is(.astryx-text, .astryx-heading)[data-wrap='nowrap'] { text-wrap: nowrap; }
+  :is(.astryx-text, .astryx-heading)[data-wrap='balance'] { text-wrap: balance; }
+  :is(.astryx-text, .astryx-heading)[data-wrap='pretty'] { text-wrap: pretty; }
+  :is(.astryx-text, .astryx-heading)[data-justify='center'] { text-align: center; }
+  :is(.astryx-text, .astryx-heading)[data-justify='end'] { text-align: end; }
+  :is(.astryx-text, .astryx-heading)[data-capsize] { text-box-edge: cap alphabetic; text-box-trim: trim-both; }
+  /* Truncated text already sets its display; -webkit-line-clamp needs -webkit-box. */
+  :is(.astryx-text, .astryx-heading)[data-capsize]:not([data-truncate]) { display: block; }
+  :is(.astryx-text, .astryx-heading)[data-strikethrough] { text-decoration: line-through; }
+  .astryx-text[data-tabular] { font-variant-numeric: tabular-nums; }
+}

@@ -1,7 +1,7 @@
 //! Port of Astryx `Theme` (packages/core/src/theme/Theme.tsx), MIT, Meta Platforms, Inc.
 
 use crate::Attr;
-use crate::tag::Tag;
+use crate::html::{attrs, el};
 use maud::Markup;
 
 /// Theme names shipped in `css/themes`.
@@ -60,11 +60,13 @@ pub struct ThemeProps {
 /// For the page root, put the same `data-astryx-theme` / `data-theme` attributes on `<html>`
 /// so browser chrome and top-layer overlays follow it.
 pub fn theme(props: &ThemeProps, children: Markup) -> Markup {
-    let name = props.name.as_deref().unwrap_or("neutral");
-    Tag::new("div")
-        .attr("class", "astryx-theme")
-        .attr("data-astryx-theme", name)
-        .attr_opt("data-theme", props.mode.data_theme())
-        .attrs(&props.attrs)
-        .wrap("div", children)
+    let a = attrs()
+        .set("class", "astryx-theme")
+        .set(
+            "data-astryx-theme",
+            props.name.as_deref().unwrap_or("neutral"),
+        )
+        .opt("data-theme", props.mode.data_theme().unwrap_or(""))
+        .extra(&props.attrs);
+    el("div", a, [Some(children)])
 }

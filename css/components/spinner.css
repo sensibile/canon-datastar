@@ -1,0 +1,30 @@
+/* Spinner. Port of Astryx packages/core/src/Spinner (MIT, Meta Platforms, Inc.).
+ * Markup: <span|div class="astryx-spinner" data-size data-shade [data-has-label]>
+ *   <span class="astryx-spinner-ring" role="progressbar"> <svg> track, <span class="astryx-spinner-rotor"> arc */
+@layer astryx-base {
+  .astryx-spinner { display: inline-flex; vertical-align: middle; }
+  .astryx-spinner[data-has-label] { flex-direction: column; align-items: center; gap: var(--spacing-2); }
+  .astryx-spinner[data-shade='default'] { --spinner-color: var(--color-accent); --spinner-track-color: var(--color-track); --_track-opacity: 1; }
+  .astryx-spinner[data-shade='subtle'] { --spinner-color: var(--color-text-secondary); --spinner-track-color: var(--color-track); --_track-opacity: 1; }
+  .astryx-spinner[data-shade='onMedia'] { --spinner-color: var(--color-on-dark); --spinner-track-color: var(--color-on-dark); --_track-opacity: 0.302; }
+  .astryx-spinner[data-shade='inherit'] { --spinner-color: currentColor; --spinner-track-color: currentColor; --_track-opacity: 0.3; }
+  .astryx-spinner-ring { display: inline-grid; place-items: center; flex-shrink: 0; }
+  .astryx-spinner-ring svg { display: block; grid-area: 1 / 1; overflow: visible; backface-visibility: hidden; }
+  .astryx-spinner-rotor {
+    display: block;
+    grid-area: 1 / 1;
+    will-change: transform;
+    animation: astryx-spin calc(var(--_astryx-pre-tempo-duration-slow-min, var(--duration-slow-min)) * 100) linear infinite;
+  }
+  .astryx-spinner-ring circle { fill: none; transform-box: fill-box; transform-origin: center; stroke-linecap: round; }
+  .astryx-spinner-track { stroke: var(--spinner-track-color); stroke-opacity: var(--_track-opacity); }
+  .astryx-spinner-arc { stroke: var(--spinner-color); transform: rotate(-90deg); }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-spinner-rotor { animation-duration: 300s; }
+  }
+}
+
+@keyframes astryx-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(36000deg); }
+}

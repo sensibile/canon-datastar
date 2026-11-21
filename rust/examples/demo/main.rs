@@ -1,14 +1,29 @@
 //! canon-datastar gallery: `cargo run --example demo` (from rust/). Mirrors go/cmd/demo.
 
-use axum::{Router, extract::Query, routing::get};
+mod components;
+
+use axum::{
+    Router,
+    extract::Query,
+    response::{Sse, sse::Event},
+    routing::{get, post},
+};
 use canon_datastar::{THEMES, ThemeMode, ThemeProps, theme};
+use datastar::{axum::ReadSignals, prelude::PatchSignals};
+use futures_util::stream::{self, Stream};
 use maud::{DOCTYPE, Markup, html};
 use serde::Deserialize;
 use std::path::Path;
+use std::{convert::Infallible, time::Duration};
 use tower_http::services::ServeDir;
 
 /// Datastar expression shared by <html> and Theme: drop data-theme for "system".
 const MODE_EXPR: &str = "$mode === 'system' ? null : $mode";
+
+/// Keeps the chosen theme and mode across demo pages.
+fn nav_expr(path: &str) -> String {
+    format!("'{path}?theme=' + $theme + '&mode=' + $mode")
+}
 
 const COLOR_GROUPS: &[(&str, &[&str])] = &[
     (
@@ -96,7 +111,7 @@ struct ThemeQuery {
     mode: Option<String>,
 }
 
-fn layout(title: &str, name: &str, mode: ThemeMode, content: Markup) -> Markup {
+pub(crate) fn layout(title: &str, name: &str, mode: ThemeMode, content: Markup) -> Markup {
     let signals = serde_json::json!({ "mode": format!("{mode:?}").to_lowercase(), "theme": name })
         .to_string();
     let attrs = vec![
@@ -123,7 +138,11 @@ fn layout(title: &str, name: &str, mode: ThemeMode, content: Markup) -> Markup {
                 (theme(&ThemeProps { name: Some(name.into()), mode, attrs }, html! {
                     div.demo-shell {
                         header.demo-header {
-                            nav { strong { "canon-datastar" } " " a href="/" { "Tokens" } }
+                            nav {
+                                strong { "canon-datastar" } " "
+                                a href="/" data-attr:href=(nav_expr("/")) { "Tokens" } " "
+                                a href="/components" data-attr:href=(nav_expr("/components")) { "Components" }
+                            }
                             div.demo-controls {
                                 label {
                                     "Theme "
@@ -194,14 +213,45 @@ fn tokens_page() -> Markup {
     }
 }
 
-async fn index(Query(q): Query<ThemeQuery>) -> Markup {
+fn theme_from_query(q: &ThemeQuery) -> (&str, ThemeMode) {
     let name = q
         .theme
         .as_deref()
         .filter(|t| THEMES.contains(t))
         .unwrap_or("neutral");
-    let mode = ThemeMode::parse(q.mode.as_deref().unwrap_or(""));
+    (name, ThemeMode::parse(q.mode.as_deref().unwrap_or("")))
+}
+
+async fn index(Query(q): Query<ThemeQuery>) -> Markup {
+    let (name, mode) = theme_from_query(&q);
     layout("canon-datastar · Tokens", name, mode, tokens_page())
+}
+
+async fn components_index(Query(q): Query<ThemeQuery>) -> Markup {
+    let (name, mode) = theme_from_query(&q);
+    layout(
+        "canon-datastar · Components",
+        name,
+        mode,
+        components::page(),
+    )
+}
+
+#[derive(Deserialize)]
+struct SaveSignals {
+    saved: i64,
+}
+
+/// Datastar demo: the button sets $saving, posts its signals here, and this SSE response
+/// patches $saving back to false (clearing aria-busy) after a short delay.
+async fn save(
+    ReadSignals(s): ReadSignals<SaveSignals>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    Sse::new(stream::once(async move {
+        tokio::time::sleep(Duration::from_millis(1200)).await;
+        let patch = serde_json::json!({ "saving": false, "saved": s.saved + 1 }).to_string();
+        Ok(PatchSignals::new(patch).write_as_axum_sse_event())
+    }))
 }
 
 #[tokio::main]
@@ -209,6 +259,8 @@ async fn main() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let app = Router::new()
         .route("/", get(index))
+        .route("/components", get(components_index))
+        .route("/demo/save", post(save))
         .nest_service("/canon/css", ServeDir::new(root.join("css")))
         .nest_service("/canon/static", ServeDir::new(root.join("static")))
         .nest_service("/demo", ServeDir::new(root.join("demo")));

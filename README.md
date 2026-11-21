@@ -18,6 +18,7 @@ Datastar attributes and signals in the browser, and SSE where the server drives 
 | `go/canon` | Go package: templ components |
 | `rust/` | Rust crate `canon-datastar`: maud components |
 | `fixtures/` | Golden HTML per component case. Go and Rust tests both render to these exact files |
+| `icons/default-icons.json` | Astryx's built-in glyphs; `scripts/gen-icons.mjs` turns it into Go and Rust tables |
 | `demo/`, `go/cmd/demo`, `rust/examples/demo` | Gallery servers (same page in each language) |
 
 ## Use
@@ -46,33 +47,66 @@ import (
 mux.Handle("GET /canon/", http.StripPrefix("/canon/", http.FileServerFS(canondatastar.Assets)))
 ```
 
+Components are `templ.Component`s, so they work inside `.templ` files or on their own:
+
 ```templ
 @canon.Theme(canon.ThemeProps{Name: "matcha", Mode: canon.ModeDark}) {
-	<p>Hello</p>
+	@canon.Button(canon.ButtonProps{Label: "Save", Variant: "primary", Attrs: []canon.Attr{
+		canon.A("data-attr:aria-busy", "$saving && 'true'"),
+		canon.A("data-on:click", "$saving = true; @post('/save')"),
+	}})
+	@canon.TextInput(canon.TextInputProps{ID: "email", Label: "Email", InputAttrs: []canon.Attr{canon.A("data-bind:email", "")}})
 }
 ```
 
 ### Rust
 
 ```rust
-use canon_datastar::{theme, ThemeMode, ThemeProps};
+use canon_datastar::*;
 
 let page = theme(
     &ThemeProps { name: Some("matcha".into()), mode: ThemeMode::Dark, ..Default::default() },
-    maud::html! { p { "Hello" } },
+    maud::html! {
+        (button(&ButtonProps { label: "Save".into(), variant: "primary".into(), ..Default::default() }))
+        (text_input(&TextInputProps {
+            id: "email".into(),
+            label: "Email".into(),
+            input_attrs: vec![attr("data-bind:email", "")],
+            ..Default::default()
+        }))
+    },
 );
 ```
 
 Serve `css/` and `static/` from this repo (e.g. `tower_http::services::ServeDir`).
 
-Every component takes extra attributes (`Attrs` / `attrs`) for Datastar bindings, e.g.
-`data-attr:data-astryx-theme="$theme"`. They render in the order given.
+### Props and Datastar
+
+Props mirror Astryx's (`isDisabled` → `IsDisabled` / `is_disabled`, `type` → `Type` / `kind`).
+Enum-like props are strings, and `""` means Astryx's default. Every component takes extra
+attributes for Datastar bindings (`Attrs` / `attrs`, plus `InputAttrs` / `input_attrs` on form
+controls for the `<input>`); they render in the order given.
+
+Component state lives in attributes and native input state, so Datastar can drive it without
+re-rendering: the button spinner shows while `aria-busy="true"` (bind it with
+`data-attr:aria-busy="$saving && 'true'"`), checkbox and switch visuals follow the input's
+`:checked`, so `data-bind` just works.
 
 ## Components
 
+- Content: `Text`, `Heading`, `Icon`, `Badge`, `Spinner`, `VisuallyHidden`
+- Action: `Button`, `IconButton`, `Link`
+- Layout: `Stack`, `HStack`, `VStack`, `Divider`
+- Form: `Field`, `FieldLabel`, `FieldStatusMessage` / `field_status`, `TextInput`, `CheckboxInput`, `Switch`
 - `Theme`
 
-More follow in stages: basic components, overlays, then the remaining Astryx categories.
+Differences from Astryx and canon-svelte, because the HTML is rendered on the server:
+a disabled `Button`/`CheckboxInput`/`Switch` uses the native `disabled` attribute; async
+`clickAction` is replaced by Datastar actions; form controls need an `ID` (otherwise one is derived
+from the label). An indeterminate checkbox and click-blocking on read-only or loading controls use
+Datastar (`data-init`, `data-on:click`). Not ported yet: tooltips, `TextInput` clear button,
+`disabledMessage`, `labelTooltip`, custom (non built-in) icons. Overlays come next, then the
+remaining Astryx categories.
 
 ## Develop
 
@@ -86,9 +120,12 @@ UPDATE_FIXTURES=1 go test ./go/...        # rewrite fixtures/ from the Go output
 node scripts/sync-astryx.mjs [version]    # re-pull reset, tokens and theme CSS from the Astryx npm packages
 ```
 
-Markup notes for keeping Go and Rust identical: tests normalise only quote escaping (`&#34;` vs
-`&quot;`, `&#39;` vs `'`). templ appends `;` to `style` attribute values and maud does not, so
-write inline styles with a trailing `;` in Rust or avoid them in components.
+Keeping Go and Rust identical: components are written with a small builder in each language
+(`go/canon/html.go`, `rust/src/html.rs`) that writes attributes in a fixed order with the same
+escaping, rather than with templ/maud templates, whose whitespace and `style` handling differ. Add a
+component by writing it in both, adding the same cases to `go/canon/*_test.go` and
+`rust/tests/fixtures.rs`, and generating the fixtures from Go. `node scripts/gen-icons.mjs`
+regenerates the icon tables after editing `icons/default-icons.json`.
 
 ## What comes from Astryx
 
@@ -96,6 +133,8 @@ write inline styles with a trailing `;` in Rust or avoid them in components.
   `@astryxdesign/theme-<name>` (currently 0.7.17), fonts and their licenses included. Identical to
   canon-svelte's copies.
 - `css/tokens.css`: default token values extracted from `@astryxdesign/core/dist/astryx.css`.
-- Components: re-implemented as HTML templates, ported from the React sources.
+- `icons/default-icons.json`: Astryx's default glyphs (`packages/core/src/Icon/defaultIcons.tsx`).
+- Components: re-implemented as HTML builders and global CSS, ported from the React sources
+  (via canon-svelte).
 
 See [LICENSE](./LICENSE) for attribution.
