@@ -1,0 +1,16 @@
+/* Port of Astryx `Theme` (packages/core/src/theme/Theme.tsx), MIT, Meta Platforms, Inc.
+ * Markup: <div class="astryx-theme" data-astryx-theme="neutral" data-theme="dark">…</div>
+ * Omit data-theme to follow the OS color scheme. Put the same attributes on <html>
+ * for the page root so browser chrome and top-layer content match. */
+@layer astryx-base {
+  .astryx-theme {
+    display: contents;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-body);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    color-scheme: light dark;
+  }
+  .astryx-theme[data-theme='light'] { color-scheme: light; }
+  .astryx-theme[data-theme='dark'] { color-scheme: dark; }
+}
