@@ -143,6 +143,20 @@ function trapTab(e, root) {
   const last = items[items.length - 1];
   const active = doc.activeElement;
   const inside = root.contains(active);
+  if (inside && active !== root && !items.includes(active)) {
+    // Focus sits on something no longer tabbable (an item of a menu this Tab just closed):
+    // wrap only when no tabbable element is left in that direction.
+    const F = Node.DOCUMENT_POSITION_FOLLOWING;
+    const P = Node.DOCUMENT_POSITION_PRECEDING;
+    const more = e.shiftKey
+      ? items.some((el) => active.compareDocumentPosition(el) & P)
+      : items.some((el) => active.compareDocumentPosition(el) & F && !active.contains(el));
+    if (!more) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+    }
+    return;
+  }
   if (e.shiftKey && (!inside || active === first || active === root)) {
     e.preventDefault();
     last.focus();
@@ -155,7 +169,11 @@ function trapTab(e, root) {
 /** Whether `node` is in a modal dialog or layer opened above `layer` (not one that contains it). */
 function inForeground(node, layer) {
   const fg = node.closest('dialog:modal, .astryx-layer');
-  return fg != null && fg !== layer && !fg.contains(layer);
+  if (fg == null || fg === layer || fg.contains(layer)) return false;
+  // Two open layers: only the one opened later is in front.
+  const a = stack.indexOf(fg);
+  const b = stack.indexOf(layer);
+  return a < 0 || b < 0 || a > b;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -471,8 +489,9 @@ let typeahead = '';
 let typeaheadTimer = 0;
 
 function menuItems(menu) {
+  // Skip disabled items and ones hidden (e.g. by data-show), which can't take focus.
   return Array.from(menu.querySelectorAll('[role^="menuitem"]')).filter(
-    (el) => el.getAttribute('aria-disabled') !== 'true',
+    (el) => el.getAttribute('aria-disabled') !== 'true' && el.getClientRects().length > 0,
   );
 }
 function focusMenu(surface, which) {
@@ -506,7 +525,13 @@ function onMenuKey(e, menu) {
       return;
     case 'Tab': {
       const surface = menu.closest('[popover]');
-      if (surface) safeHide(surface);
+      if (surface) {
+        // Leave the stack now (toggle fires later), so an enclosing modal's Tab trap,
+        // checked further down in this same keydown, sees itself on top again.
+        const at = stack.indexOf(surface);
+        if (at >= 0) stack.splice(at, 1);
+        safeHide(surface);
+      }
       return;
     }
   }
