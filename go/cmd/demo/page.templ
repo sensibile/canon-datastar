@@ -38,6 +38,7 @@ templ layout(title string, theme string, mode canon.ThemeMode) {
 				<link rel="stylesheet" href={ "/canon/css/themes/" + t + ".css" }/>
 			}
 			<link rel="stylesheet" href="/demo/demo.css"/>
+			<script type="module" src="/canon/static/canon.js"></script>
 			<script type="module" src="/canon/static/datastar.js"></script>
 		</head>
 		<body data-signals={ signals(theme, mode) }>
@@ -51,6 +52,7 @@ templ layout(title string, theme string, mode canon.ThemeMode) {
 							<strong>canon-datastar</strong>
 							<a href="/" data-attr:href={ navExpr("/") }>Tokens</a>
 							<a href="/components" data-attr:href={ navExpr("/components") }>Components</a>
+							<a href="/overlays" data-attr:href={ navExpr("/overlays") }>Overlays</a>
 						</nav>
 						<div class="demo-controls">
 							<label>
@@ -75,6 +77,7 @@ templ layout(title string, theme string, mode canon.ThemeMode) {
 						{ children... }
 					</main>
 				</div>
+				@canon.ToastViewport(canon.ToastViewportProps{})
 			}
 		</body>
 	</html>

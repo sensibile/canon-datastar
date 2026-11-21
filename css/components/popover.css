@@ -1,0 +1,53 @@
+/* Popover. Port of Astryx packages/core/src/Popover (MIT, Meta Platforms, Inc.).
+ * Markup: <span class="astryx-popover-anchor" data-popover="ID">trigger</span>
+ *   <div popover id="ID" role="dialog" class="astryx-layer astryx-popover" style="--_popover-padding: …">
+ *     <div class="astryx-popover-content">… [<button class="astryx-popover-close">] */
+@layer astryx-base {
+  .astryx-popover-anchor { display: inline-flex; }
+  .astryx-layer.astryx-popover {
+    background-color: var(--color-background-popover);
+    color: var(--color-text-primary);
+    --_popover-radius: var(--radius-container);
+    border-radius: var(--_popover-radius);
+    box-shadow: var(--shadow-low);
+    padding: var(--_popover-padding, var(--spacing-3));
+    box-sizing: border-box;
+    max-height: calc(100vh - 16px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    font-family: var(--font-family-body);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+  }
+  .astryx-layer.astryx-popover:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+  }
+  @media (forced-colors: active) {
+    .astryx-layer.astryx-popover { border: 1px solid CanvasText; }
+  }
+  .astryx-popover-content { position: relative; }
+  .astryx-popover-close {
+    position: absolute;
+    bottom: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    pointer-events: none;
+    font: inherit;
+    color: var(--color-text-accent);
+    background: transparent;
+    border: 0;
+    padding: 0;
+  }
+  .astryx-popover-close:focus-visible {
+    position: relative;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    pointer-events: auto;
+    display: block;
+    margin-block-start: var(--spacing-1);
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+  }
+}

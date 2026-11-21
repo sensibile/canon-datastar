@@ -1,0 +1,95 @@
+/* Toast and ToastViewport. Port of Astryx packages/core/src/Toast (MIT, Meta Platforms, Inc.).
+ * Markup: <div popover="manual" id="astryx-toasts" class="astryx-toast-viewport" data-position
+ *   data-max-visible role="region" aria-label="Notifications">
+ *   <div class="astryx-toast-row" [data-exiting]><div class="astryx-toast-row-inner">
+ *     <div class="astryx-toast" data-type [data-auto-hide="ms"] role="status|alert">
+ *       <div class="astryx-toast-inner"><div class="astryx-toast-content">…
+ *       <div class="astryx-toast-end">[end] <button class="astryx-button astryx-toast-close" data-toast-dismiss> */
+@layer astryx-base {
+  .astryx-toast-viewport {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    box-sizing: border-box;
+    width: auto;
+    margin: 0;
+    border: 0 none;
+    background-color: transparent;
+    color: inherit;
+    overflow: visible;
+    pointer-events: none;
+    padding-block: max(var(--spacing-4), env(safe-area-inset-top, 0px)) calc(var(--spacing-4) + env(safe-area-inset-bottom, 0px));
+    padding-inline: max(var(--spacing-4), env(safe-area-inset-left, 0px)) max(var(--spacing-4), env(safe-area-inset-right, 0px));
+    --_toast-slide-y: var(--spacing-2);
+  }
+  .astryx-toast-viewport:is([data-position='topEnd'], [data-position='topStart']) {
+    inset: 0 0 auto 0;
+    flex-direction: column-reverse;
+    --_toast-slide-y: calc(-1 * var(--spacing-2));
+  }
+  .astryx-toast-viewport:is([data-position='topStart'], [data-position='bottomStart']) { align-items: flex-start; }
+  .astryx-toast-viewport:not(:has(.astryx-toast-row)) { display: none; }
+  .astryx-toast-row {
+    display: grid;
+    grid-template-rows: 1fr;
+    width: 400px;
+    max-width: 100%;
+    padding-block-end: var(--spacing-2);
+    transition-property: grid-template-rows, padding;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+  }
+  .astryx-toast-viewport:not([data-position^='top']) .astryx-toast-row:last-child,
+  .astryx-toast-viewport[data-position^='top'] .astryx-toast-row:first-child { padding-block-end: 0; }
+  @starting-style {
+    .astryx-toast-row { grid-template-rows: 0fr; }
+  }
+  .astryx-toast-row[data-exiting] { grid-template-rows: 0fr; padding-block-end: 0; }
+  .astryx-toast-row-inner { min-height: 0; min-width: 0; }
+  .astryx-toast-row[data-exiting] .astryx-toast-row-inner { overflow: hidden; }
+
+  .astryx-toast {
+    box-sizing: border-box;
+    width: 400px;
+    max-width: 100%;
+    padding: var(--spacing-4);
+    border-radius: var(--radius-container);
+    box-shadow: var(--shadow-med);
+    background-color: var(--color-background-inverted);
+    /* Inverted surface: page background colour reads as foreground. */
+    color: var(--color-background-surface);
+    font-family: var(--font-family-body);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    pointer-events: auto;
+    transition-property: opacity, transform;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+  }
+  @starting-style {
+    .astryx-toast { opacity: 0; transform: translateY(var(--_toast-slide-y, var(--spacing-2))); }
+  }
+  .astryx-toast[data-type='error'] { background-color: var(--color-background-error-inverted); }
+  .astryx-toast-row[data-exiting] .astryx-toast { opacity: 0; transform: translateY(var(--_toast-slide-y, var(--spacing-2))); }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-toast,
+    .astryx-toast-row { transition-duration: 0.01ms; }
+  }
+  @media (forced-colors: active) {
+    .astryx-toast { border: 1px solid CanvasText; }
+  }
+  .astryx-toast-inner { display: flex; align-items: flex-start; gap: var(--spacing-3); width: 100%; }
+  .astryx-toast-content { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .astryx-toast-end {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    block-size: calc(var(--text-body-size) * var(--text-body-leading));
+    margin-inline-end: calc(var(--spacing-1) * -1);
+  }
+  .astryx-toast-end .astryx-toast-close { color: inherit; }
+}

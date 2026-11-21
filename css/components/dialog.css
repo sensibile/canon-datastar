@@ -1,0 +1,94 @@
+/* Dialog and DialogHeader. Port of Astryx packages/core/src/Dialog (MIT, Meta Platforms, Inc.).
+ * Markup: <dialog class="astryx-dialog" data-variant data-purpose style="--_dialog-padding: …">
+ *   <div class="astryx-dialog-inner">…
+ * DialogHeader: <div class="astryx-dialog-header"><div class="astryx-dialog-header-row" [data-has-close]>
+ *   [<div class="astryx-dialog-header-actions">] <div class="astryx-dialog-header-titles">
+ *   <h2 class="astryx-heading astryx-dialog-title" tabindex="-1" autofocus> [subtitle]
+ *   [<div class="astryx-dialog-header-actions astryx-dialog-header-end">] [divider] */
+@layer astryx-base {
+  .astryx-dialog {
+    position: fixed;
+    margin: auto;
+    padding: 0;
+    border: 0 none;
+    background-color: var(--color-background-surface);
+    color: var(--color-text-primary);
+    --_dialog-radius: var(--radius-container);
+    border-radius: var(--_dialog-radius);
+    box-shadow: var(--shadow-high);
+    max-width: min(100%, calc(100dvw - 2 * var(--spacing-4)));
+    height: fit-content;
+    overscroll-behavior: contain;
+    flex-direction: column;
+    font-family: var(--font-family-body);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    animation: astryx-dialog-enter var(--duration-medium-max) var(--ease-standard) backwards;
+  }
+  .astryx-dialog[open] { display: flex; }
+  .astryx-dialog::backdrop {
+    background-color: var(--color-overlay);
+    animation: astryx-dialog-fade var(--duration-medium-max) var(--ease-standard) backwards;
+  }
+  .astryx-dialog[data-variant='fullscreen'] {
+    width: 100dvw;
+    height: 100dvh;
+    max-width: 100dvw;
+    max-height: 100dvh;
+    --_dialog-radius: 0px;
+    border-radius: 0;
+    margin: 0;
+    inset: 0;
+    animation-name: astryx-dialog-fade;
+  }
+  .astryx-dialog-inner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--_dialog-padding, var(--spacing-4));
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: var(--_dialog-padding, var(--spacing-4));
+    overflow: auto;
+    border-radius: inherit;
+  }
+  /* Lock page scroll behind an open modal. */
+  :root:has(.astryx-dialog:modal) { overflow: hidden; }
+  @media (forced-colors: active) {
+    .astryx-dialog { border: 1px solid CanvasText; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-dialog,
+    .astryx-dialog::backdrop { animation: none; }
+  }
+
+  .astryx-dialog-header { display: flex; flex-direction: column; gap: var(--spacing-3); }
+  .astryx-dialog-header-row {
+    --_title-offset: calc(var(--size-element-md) / 2 - var(--spacing-2) - var(--text-heading-2-size) * var(--text-heading-2-leading) / 2);
+    --_end-offset: 0px;
+    --_row-offset: min(var(--_title-offset), var(--_end-offset), 0px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+    margin-block: var(--_row-offset);
+  }
+  .astryx-dialog-header-row[data-has-close] { --_end-offset: calc(-1 * var(--spacing-2)); }
+  .astryx-dialog-header-titles {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    margin-block: calc(var(--_title-offset) - var(--_row-offset));
+  }
+  .astryx-dialog-title { outline: none; }
+  .astryx-dialog-header-actions { display: flex; align-items: center; gap: var(--spacing-2); flex-shrink: 0; }
+  .astryx-dialog-header-end { margin-block: calc(var(--_end-offset) - var(--_row-offset)); }
+  .astryx-dialog-header-row[data-has-close] .astryx-dialog-header-end { margin-inline-end: calc(-1 * var(--spacing-2)); }
+}
+
+@keyframes astryx-dialog-enter {
+  from { opacity: 0; transform: translateY(16px) scale(0.95); }
+}
+@keyframes astryx-dialog-fade {
+  from { opacity: 0; }
+}

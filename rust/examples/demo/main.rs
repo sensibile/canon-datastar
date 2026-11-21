@@ -1,6 +1,7 @@
 //! canon-datastar gallery: `cargo run --example demo` (from rust/). Mirrors go/cmd/demo.
 
 mod components;
+mod overlays;
 
 use axum::{
     Router,
@@ -8,9 +9,14 @@ use axum::{
     response::{Sse, sse::Event},
     routing::{get, post},
 };
-use canon_datastar::{THEMES, ThemeMode, ThemeProps, theme};
-use datastar::{axum::ReadSignals, prelude::PatchSignals};
-use futures_util::stream::{self, Stream};
+use canon_datastar::{
+    THEMES, ThemeMode, ThemeProps, ToastProps, ToastViewportProps, theme, toast, toast_viewport,
+};
+use datastar::{
+    axum::ReadSignals,
+    prelude::{ElementPatchMode, PatchElements, PatchSignals},
+};
+use futures_util::stream::{self, Stream, StreamExt};
 use maud::{DOCTYPE, Markup, html};
 use serde::Deserialize;
 use std::path::Path;
@@ -132,6 +138,7 @@ pub(crate) fn layout(title: &str, name: &str, mode: ThemeMode, content: Markup) 
                 link rel="stylesheet" href="/canon/css/astryx.css";
                 @for t in THEMES { link rel="stylesheet" href={ "/canon/css/themes/" (t) ".css" }; }
                 link rel="stylesheet" href="/demo/demo.css";
+                script type="module" src="/canon/static/canon.js" {}
                 script type="module" src="/canon/static/datastar.js" {}
             }
             body data-signals=(signals) {
@@ -141,7 +148,8 @@ pub(crate) fn layout(title: &str, name: &str, mode: ThemeMode, content: Markup) 
                             nav {
                                 strong { "canon-datastar" } " "
                                 a href="/" data-attr:href=(nav_expr("/")) { "Tokens" } " "
-                                a href="/components" data-attr:href=(nav_expr("/components")) { "Components" }
+                                a href="/components" data-attr:href=(nav_expr("/components")) { "Components" } " "
+                                a href="/overlays" data-attr:href=(nav_expr("/overlays")) { "Overlays" }
                             }
                             div.demo-controls {
                                 label {
@@ -162,6 +170,7 @@ pub(crate) fn layout(title: &str, name: &str, mode: ThemeMode, content: Markup) 
                         }
                         main { (content) }
                     }
+                    (toast_viewport(&ToastViewportProps::default(), html! {}))
                 }))
             }
         }
@@ -237,6 +246,62 @@ async fn components_index(Query(q): Query<ThemeQuery>) -> Markup {
     )
 }
 
+async fn overlays_index(Query(q): Query<ThemeQuery>) -> Markup {
+    let (name, mode) = theme_from_query(&q);
+    layout("canon-datastar · Overlays", name, mode, overlays::page())
+}
+
+/// Appends a server-rendered toast to the viewport.
+fn toast_event(p: &ToastProps) -> Event {
+    PatchElements::new(toast(p).into_string())
+        .selector("#astryx-toasts")
+        .mode(ElementPatchMode::Append)
+        .write_as_axum_sse_event()
+}
+
+#[derive(Deserialize)]
+struct ToastQuery {
+    body: Option<String>,
+    #[serde(rename = "type")]
+    kind: Option<String>,
+}
+
+/// Toast over SSE.
+async fn demo_toast(
+    Query(q): Query<ToastQuery>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let p = ToastProps {
+        body: q.body.unwrap_or_default(),
+        kind: q.kind.unwrap_or_default(),
+        ..Default::default()
+    };
+    Sse::new(stream::once(async move { Ok(toast_event(&p)) }))
+}
+
+#[derive(Deserialize)]
+struct DeleteSignals {
+    deleted: i64,
+}
+
+/// Dialog over SSE: closes the confirm dialog through its signal and shows a toast.
+async fn demo_delete(
+    ReadSignals(s): ReadSignals<DeleteSignals>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let delay = stream::once(async { tokio::time::sleep(Duration::from_millis(800)).await });
+    let events = delay.flat_map(move |_| {
+        let patch =
+            serde_json::json!({ "confirmOpen": false, "deleted": s.deleted + 1 }).to_string();
+        stream::iter([
+            Ok(PatchSignals::new(patch).write_as_axum_sse_event()),
+            Ok(toast_event(&ToastProps {
+                body: "Project deleted".into(),
+                ..Default::default()
+            })),
+        ])
+    });
+    Sse::new(events)
+}
+
 #[derive(Deserialize)]
 struct SaveSignals {
     saved: i64,
@@ -260,7 +325,10 @@ async fn main() {
     let app = Router::new()
         .route("/", get(index))
         .route("/components", get(components_index))
+        .route("/overlays", get(overlays_index))
         .route("/demo/save", post(save))
+        .route("/demo/toast", post(demo_toast))
+        .route("/demo/delete", post(demo_delete))
         .nest_service("/canon/css", ServeDir::new(root.join("css")))
         .nest_service("/canon/static", ServeDir::new(root.join("static")))
         .nest_service("/demo", ServeDir::new(root.join("demo")));

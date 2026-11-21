@@ -1,0 +1,53 @@
+/* Tooltip and InfoTip. Port of Astryx packages/core/src/Tooltip, InfoTip (MIT, Meta Platforms, Inc.).
+ * Markup: <span class="astryx-tooltip-trigger" data-tooltip="ID" [data-indication]>trigger</span>
+ *   <div popover="manual" id="ID" role="tooltip" class="astryx-layer astryx-tooltip">
+ *     <div class="astryx-tooltip-content">…
+ * A trigger with no element child (plain text) is shown inline and takes focus. */
+@layer astryx-base {
+  .astryx-tooltip-trigger { display: contents; }
+  .astryx-tooltip-trigger:not(:has(> *)) { display: inline; }
+  .astryx-tooltip-trigger:is([data-indication='always'], [data-indication='auto']:not(:has(> *))) {
+    text-decoration-line: underline;
+    text-decoration-style: dashed;
+    text-decoration-color: var(--color-border-emphasized);
+    text-underline-offset: 2px;
+  }
+  .astryx-layer.astryx-tooltip {
+    background-color: var(--color-background-inverted);
+    color: var(--color-background-surface);
+    border-radius: var(--radius-container);
+    font-family: var(--font-family-body);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+  }
+  .astryx-tooltip-content {
+    padding-block: var(--spacing-1);
+    padding-inline: var(--spacing-2);
+    max-width: 300px;
+    word-break: break-word;
+  }
+
+  .astryx-info-tip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    padding: var(--spacing-0-5);
+    margin: 0;
+    border: 0 none;
+    background-color: transparent;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    color: var(--color-icon-secondary);
+    outline: 0 none;
+    transition: color var(--duration-fast) var(--ease-standard);
+  }
+  .astryx-info-tip:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: var(--focus-outline-offset);
+  }
+  @media (hover: hover) {
+    .astryx-info-tip:hover { color: var(--color-icon-primary); }
+  }
+}

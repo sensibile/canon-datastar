@@ -14,6 +14,7 @@ Datastar attributes and signals in the browser, and SSE where the server drives 
 | Path | What |
 | --- | --- |
 | `css/` | Shared stylesheets: `astryx.css` (reset + tokens + theme scope), `themes/<name>.css` |
+| `static/canon.js` | Overlay behaviour: positioning, menu and tab keyboard, tooltips, toasts, `window.canon` |
 | `static/datastar.js` | Datastar client v1.0.5 (MIT, Star Federation), vendored for convenience |
 | `go/canon` | Go package: templ components |
 | `rust/` | Rust crate `canon-datastar`: maud components |
@@ -23,13 +24,16 @@ Datastar attributes and signals in the browser, and SSE where the server drives 
 
 ## Use
 
-Link the base stylesheet, every theme you use, and Datastar:
+Link the base stylesheet, every theme you use, `canon.js` and then Datastar:
 
 ```html
 <link rel="stylesheet" href="/canon/css/astryx.css">
 <link rel="stylesheet" href="/canon/css/themes/neutral.css">
+<script type="module" src="/canon/static/canon.js"></script>
 <script type="module" src="/canon/static/datastar.js"></script>
 ```
+
+`canon.js` goes first so Datastar expressions can call `canon.*`. Pages without overlays don't need it.
 
 Themes: `neutral`, `butter`, `chocolate`, `matcha`, `stone`, `gothic`, `y2k`. Each theme file
 brings its fonts. Put `data-astryx-theme="<name>"` (and `data-theme="light|dark"`, or nothing to
@@ -92,21 +96,50 @@ re-rendering: the button spinner shows while `aria-busy="true"` (bind it with
 `data-attr:aria-busy="$saving && 'true'"`), checkbox and switch visuals follow the input's
 `:checked`, so `data-bind` just works.
 
+### Overlays
+
+Overlays are native: `Tooltip`, `Popover` and `DropdownMenu` render a `popover` element (top layer,
+light dismiss, Escape and focus return from the browser), `Dialog` renders a modal `<dialog>`.
+`static/canon.js` adds the rest through event delegation, so markup patched in over SSE works with
+no setup: anchored positioning with flip and shift, the menu keyboard model (arrows, Home/End,
+typeahead), tooltip hover and focus timing, InfoTip pinning, Dialog `Purpose`, tab roving focus,
+and toast timers. Wire it to Datastar like this:
+
+- Open state as a signal: `Dialog` and `Popover` take `Signal: "confirmOpen"`. Setting the signal
+  opens or closes them, and closing them in the browser sets it back, so the server can close a
+  dialog by patching `{confirmOpen: false}`.
+- Or call the API from any expression: `canon.dialog('settings')`, `canon.popover('filters', false)`,
+  `canon.toast({body: 'Copied'})`.
+- Menu items and tabs take Datastar actions in `Attrs`, e.g. `data-on:click="@post('/archive')"`.
+  `TabList` with `Signal: "tab"` keeps the selected tab in `$tab`, and `TabPanel`s follow it.
+- Toasts from the server: render one `ToastViewport` per page and patch a `Toast` into it, e.g.
+  `sse.PatchElementTempl(canon.Toast(canon.ToastProps{Body: "Saved"}), datastar.WithSelectorID("astryx-toasts"), datastar.WithModeAppend())`
+  in Go, or `PatchElements::new(toast(&p).into_string()).selector("#astryx-toasts").mode(ElementPatchMode::Append)` in Rust.
+
+Give each overlay an `ID` when a page has more than one of a kind; defaults are derived from the
+content (`tooltip-<slug>`) or fixed (`popover`, `menu`).
+
 ## Components
 
 - Content: `Text`, `Heading`, `Icon`, `Badge`, `Spinner`, `VisuallyHidden`
 - Action: `Button`, `IconButton`, `Link`
 - Layout: `Stack`, `HStack`, `VStack`, `Divider`
 - Form: `Field`, `FieldLabel`, `FieldStatusMessage` / `field_status`, `TextInput`, `CheckboxInput`, `Switch`
+- Overlay: `Tooltip`, `InfoTip`, `Popover`, `Dialog`, `DialogHeader`, `DropdownMenu`,
+  `DropdownMenuItem`, `DropdownMenuGroup`, `DropdownMenuDivider`, `TabList` (with `TabProps`),
+  `TabPanel`, `Toast`, `ToastViewport`
 - `Theme`
 
 Differences from Astryx and canon-svelte, because the HTML is rendered on the server:
 a disabled `Button`/`CheckboxInput`/`Switch` uses the native `disabled` attribute; async
 `clickAction` is replaced by Datastar actions; form controls need an `ID` (otherwise one is derived
 from the label). An indeterminate checkbox and click-blocking on read-only or loading controls use
-Datastar (`data-init`, `data-on:click`). Not ported yet: tooltips, `TextInput` clear button,
-`disabledMessage`, `labelTooltip`, custom (non built-in) icons. Overlays come next, then the
-remaining Astryx categories.
+Datastar (`data-init`, `data-on:click`). Overlays: `TabList` takes its tabs as data rather than
+children; a Tooltip's `aria-describedby` is added by `canon.js`; opening a modal Dialog closes open
+popovers (the browser's rule for the top layer); DropdownMenu items are composed as children only.
+Not ported yet: `TextInput` clear button, `disabledMessage`, `labelTooltip`, custom (non built-in)
+icons, Button tooltips, touch long-press and bottom-sheet presentation, menu submenus and
+checkbox/radio items, tab overflow arrows, toast swipe. The remaining Astryx categories come next.
 
 ## Develop
 

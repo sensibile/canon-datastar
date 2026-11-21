@@ -206,3 +206,24 @@ func joinIDs(ids ...string) string {
 	}
 	return strings.Join(parts, " ")
 }
+
+// jsString quotes s as a single-quoted JavaScript string for Datastar expressions.
+func jsString(s string) string {
+	var b strings.Builder
+	b.WriteByte('\'')
+	for _, r := range s {
+		switch r {
+		case '\\', '\'':
+			b.WriteByte('\\')
+			b.WriteRune(r)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	b.WriteByte('\'')
+	return b.String()
+}

@@ -8,30 +8,45 @@
 //! Every component takes `attrs` (extra attributes, e.g. Datastar bindings), rendered in order.
 
 mod button;
+mod dialog;
 mod field;
 mod html;
 mod icon;
 mod icons_gen;
 mod inputs;
 mod link;
+mod menu;
 mod misc;
+mod popover;
+mod tabs;
 mod text;
 mod theme;
+mod toast;
+mod tooltip;
 mod types;
 
 pub use button::{ButtonProps, button, icon_button};
+pub use dialog::{DialogHeaderProps, DialogProps, dialog, dialog_header};
 pub use field::{FieldLabelProps, FieldProps, field, field_label, field_status};
 pub use icon::{IconProps, icon, icon_names};
 pub use inputs::{
     CheckboxInputProps, SwitchProps, TextInputProps, checkbox_input, switch, text_input,
 };
 pub use link::{LinkProps, link};
+pub use menu::{
+    DropdownMenuGroupProps, DropdownMenuItemProps, DropdownMenuProps, dropdown_menu,
+    dropdown_menu_divider, dropdown_menu_group, dropdown_menu_item,
+};
 pub use misc::{
     BadgeProps, DividerProps, SpinnerProps, StackProps, VisuallyHiddenProps, badge, divider,
     hstack, spinner, stack, visually_hidden, vstack,
 };
+pub use popover::{PopoverProps, popover};
+pub use tabs::{TabListProps, TabPanelProps, TabProps, tab_list, tab_panel};
 pub use text::{HeadingProps, TextProps, heading, text};
 pub use theme::{THEMES, ThemeMode, ThemeProps, theme};
+pub use toast::{ToastProps, ToastViewportProps, toast, toast_viewport};
+pub use tooltip::{InfoTipProps, TooltipProps, info_tip, tooltip};
 pub use types::FieldStatus;
 
 /// One HTML attribute, e.g. a Datastar binding `("data-bind:email".into(), "".into())`.
