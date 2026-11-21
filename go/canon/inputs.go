@@ -66,6 +66,7 @@ func TextInput(p TextInputProps) templ.Component {
 		opt("placeholder", p.Placeholder).
 		opt("spellcheck", spell).
 		flag("readonly", p.IsReadOnly || p.IsDisabled).
+		flag("required", p.IsRequired && !p.IsOptional && !p.IsDisabled).
 		when(p.IsDisabled, "aria-disabled", "true").
 		opt("aria-describedby", describedBy).
 		when(p.IsRequired && !p.IsOptional, "aria-required", "true").

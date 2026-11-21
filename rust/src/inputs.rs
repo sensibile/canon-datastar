@@ -83,6 +83,10 @@ pub fn text_input(p: &TextInputProps) -> Markup {
         .opt("placeholder", &p.placeholder)
         .opt("spellcheck", spell)
         .flag("readonly", p.is_read_only || p.is_disabled)
+        .flag(
+            "required",
+            p.is_required && !p.is_optional && !p.is_disabled,
+        )
         .when(p.is_disabled, "aria-disabled", "true")
         .opt("aria-describedby", &described_by)
         .when(p.is_required && !p.is_optional, "aria-required", "true")

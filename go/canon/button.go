@@ -51,7 +51,6 @@ var buttonIconSize = map[string]string{"sm": "sm", "md": "sm", "lg": "md"}
 func Button(p ButtonProps) templ.Component {
 	size := or(p.Size, "md")
 	asLink := p.Href != "" && !p.IsDisabled
-	busyBlocks := p.IsLoading && !p.IsInterruptible && !p.IsDisabled
 	a := newAttrs().set("class", cls("astryx-button", p.Class)).
 		set("data-variant", or(p.Variant, "secondary")).
 		set("data-size", size).
@@ -62,8 +61,7 @@ func Button(p ButtonProps) templ.Component {
 		// Always named by Label: the visible content is hidden while busy, and Datastar may
 		// set aria-busy after render.
 		opt("aria-label", p.Label).
-		when(p.IsLoading, "aria-busy", "true").
-		when(busyBlocks, "aria-disabled", "true")
+		when(p.IsLoading, "aria-busy", "true")
 	tag := "button"
 	if asLink {
 		tag = "a"

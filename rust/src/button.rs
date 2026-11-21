@@ -54,7 +54,6 @@ pub struct ButtonProps {
 pub fn button(p: &ButtonProps) -> Markup {
     let size = or(&p.size, "md");
     let as_link = !p.href.is_empty() && !p.is_disabled;
-    let busy_blocks = p.is_loading && !p.is_interruptible && !p.is_disabled;
     let mut a = attrs()
         .set("class", &cls("astryx-button", &p.class))
         .set("data-variant", or(&p.variant, "secondary"))
@@ -66,8 +65,7 @@ pub fn button(p: &ButtonProps) -> Markup {
         // Always named by the label: the visible content is hidden while busy, and Datastar may
         // set aria-busy after render.
         .opt("aria-label", &p.label)
-        .when(p.is_loading, "aria-busy", "true")
-        .when(busy_blocks, "aria-disabled", "true");
+        .when(p.is_loading, "aria-busy", "true");
     let tag = if as_link {
         a = a
             .set("href", &p.href)

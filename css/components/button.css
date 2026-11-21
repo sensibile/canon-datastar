@@ -1,6 +1,6 @@
 /* Button / IconButton. Port of Astryx packages/core/src/Button (MIT, Meta Platforms, Inc.).
  * Markup: <button|a class="astryx-button" data-variant data-size data-elevation
- *   [data-icon-only] [data-disabled] [aria-busy="true"] [aria-disabled="true"] [data-interruptible]>
+ *   [data-icon-only] [data-disabled] [aria-busy="true"] [data-interruptible]>
  *   <span class="astryx-button-spinner"> (spinner, shown while aria-busy="true")
  *   <span class="astryx-button-content"> icon, label, end content
  * State lives in attributes, so Datastar can flip it client-side, e.g. data-attr:aria-busy="$saving". */
