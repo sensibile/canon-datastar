@@ -92,11 +92,11 @@ pub fn tab_list(p: &TabListProps) -> Markup {
 }
 
 /// The tab in the Tab order: the selected one, or the first enabled tab when no tab matches
-/// `value`, so keyboard users can always reach the list.
+/// `value` (or it is disabled), so keyboard users can always reach the list.
 fn tab_stop(p: &TabListProps) -> Option<usize> {
     p.tabs
         .iter()
-        .position(|t| t.value == p.value)
+        .position(|t| t.value == p.value && !t.is_disabled)
         .or_else(|| p.tabs.iter().position(|t| !t.is_disabled))
 }
 
@@ -108,9 +108,14 @@ fn fallback_stop(p: &TabListProps) -> Option<&str> {
         .map(|t| t.value.as_str())
 }
 
-/// A JS array literal of every tab value.
+/// A JS array literal of the enabled tabs' values.
 fn tab_values(p: &TabListProps) -> String {
-    let vals: Vec<String> = p.tabs.iter().map(|t| js_string(&t.value)).collect();
+    let vals: Vec<String> = p
+        .tabs
+        .iter()
+        .filter(|t| !t.is_disabled)
+        .map(|t| js_string(&t.value))
+        .collect();
     format!("[{}]", vals.join(","))
 }
 
@@ -168,7 +173,7 @@ fn tab(
             }
         }
         let tabindex = if fallback_stop(p) == Some(t.value.as_str()) {
-            // No tab matches the signal: this first enabled tab stays reachable.
+            // No enabled tab matches the signal: this first enabled tab stays reachable.
             format!(
                 "{is} || !{}.includes(${}) ? 0 : -1",
                 tab_values(p),

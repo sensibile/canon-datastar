@@ -1010,6 +1010,15 @@ fn tab_list_fixtures() {
                 }),
             ),
             (
+                "nav-disabled",
+                tab_list(&TabListProps {
+                    value: s("off"),
+                    signal: s("nav"),
+                    tabs: vec![nav_tabs[2].clone(), nav_tabs[0].clone()],
+                    ..Default::default()
+                }),
+            ),
+            (
                 "nav",
                 tab_list(&TabListProps {
                     value: s("home"),

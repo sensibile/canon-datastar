@@ -65,6 +65,7 @@ func TestTabListFixtures(t *testing.T) {
 	checkFixtures(t, "tab-list", []fixture{
 		{"nav", TabList(TabListProps{Value: "home", Tabs: tabs})},
 		{"nav-none", TabList(TabListProps{Value: "none", Tabs: []TabProps{tabs[2], tabs[0]}})},
+		{"nav-disabled", TabList(TabListProps{Value: "off", Signal: "nav", Tabs: []TabProps{tabs[2], tabs[0]}})},
 		{"tablist", TabList(TabListProps{Value: "b", Signal: "tab", Role: "tablist", Size: "lg", Layout: "fill", HasDivider: true,
 			Label: "Sections", Class: "x", Attrs: []Attr{{"data-x", "1"}}, Tabs: []TabProps{
 				{Value: "a", Label: "A", ID: "tab-a", PanelID: "panel-a", Icon: "clock", SelectedIcon: "check"},

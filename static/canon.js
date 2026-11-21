@@ -570,7 +570,11 @@ doc.addEventListener('keydown', (e) => {
     }
     // Manual popovers that allow Escape (auto popovers get it natively).
     const top = stack[stack.length - 1];
-    if (top?.matches('.astryx-popover[popover="manual"]:not([data-no-escape-dismiss])')) {
+    // Not when focus is in a modal dialog opened above it: that dialog gets the Escape.
+    if (
+      top?.matches('.astryx-popover[popover="manual"]:not([data-no-escape-dismiss])') &&
+      !inForeground(t, top)
+    ) {
       e.preventDefault();
       safeHide(top);
       anchorFor(top)?.focus({ preventScroll: true });
@@ -657,11 +661,13 @@ doc.addEventListener('pointerup', (e) => {
 const toastTimers = new WeakMap();
 
 /** Starts a toast's auto-hide timer, or restarts it when a patch changed data-auto-hide. */
-function startToast(toast) {
+/** Start a toast's auto-hide timer once; restart it when its config changes or on `restart`
+ * (an overwrite shows new content, so it gets the full duration again). */
+function startToast(toast, restart = false) {
   const config = toast.dataset.autoHide ?? '';
   let state = toastTimers.get(toast);
   if (state) {
-    if (state.config === config) return;
+    if (state.config === config && !restart) return;
     clearTimeout(state.timer);
     state.timer = 0;
     state.config = config;
@@ -800,7 +806,7 @@ function toast(opts) {
       if (opts.collision !== 'ignore' && t) {
         // Overwrite: new body, type and timing; startToast restarts the timer if it changed.
         applyToast(t, opts);
-        startToast(t);
+        startToast(t, true);
       }
       return () => t && dismissToast(t, 'manual');
     }

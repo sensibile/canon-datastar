@@ -85,11 +85,11 @@ func TabList(p TabListProps) templ.Component {
 }
 
 // tabStop picks the tab that is in the Tab order: the selected one, or the first enabled tab
-// when no tab matches Value, so keyboard users can always reach the list.
+// when no enabled tab matches Value, so keyboard users can always reach the list.
 func tabStop(p TabListProps) int {
 	first := -1
 	for i, t := range p.Tabs {
-		if t.Value == p.Value {
+		if t.Value == p.Value && !t.IsDisabled {
 			return i
 		}
 		if first < 0 && !t.IsDisabled {
@@ -147,7 +147,7 @@ func tab(t TabProps, p TabListProps, size, layout string, isTabList, isStop bool
 		}
 		tabindex := is + " ? 0 : -1"
 		if fb := fallbackStop(p); fb == t.Value {
-			// No tab matches the signal: this first enabled tab stays reachable.
+			// No enabled tab matches the signal: this first enabled tab stays reachable.
 			tabindex = is + " || !" + tabValues(p) + ".includes($" + p.Signal + ") ? 0 : -1"
 		}
 		a.set("data-attr:tabindex", tabindex).set("data-on:click", click).extra(rest)
@@ -226,11 +226,13 @@ func fallbackStop(p TabListProps) string {
 	return ""
 }
 
-// tabValues is a JS array literal of every tab value.
+// tabValues is a JS array literal of the enabled tabs' values.
 func tabValues(p TabListProps) string {
-	vals := make([]string, len(p.Tabs))
-	for i, t := range p.Tabs {
-		vals[i] = jsString(t.Value)
+	var vals []string
+	for _, t := range p.Tabs {
+		if !t.IsDisabled {
+			vals = append(vals, jsString(t.Value))
+		}
 	}
 	return "[" + strings.Join(vals, ",") + "]"
 }
