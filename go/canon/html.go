@@ -64,6 +64,17 @@ func (a *attrs) extra(list []Attr) *attrs {
 	return a
 }
 
+// withoutPrefix drops attributes whose name starts with prefix (e.g. "data-on:" handlers).
+func withoutPrefix(list []Attr, prefix string) []Attr {
+	var out []Attr
+	for _, a := range list {
+		if !strings.HasPrefix(a.Name, prefix) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
 func checkAttrName(name string) {
 	if name == "" || strings.ContainsAny(name, " \t\n\f\r\"'>/=<") {
 		panic("canon: invalid HTML attribute name " + name)

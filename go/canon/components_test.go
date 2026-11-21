@@ -47,7 +47,8 @@ func TestLinkFixtures(t *testing.T) {
 		{"default", with(Link(LinkProps{Href: "/a"}), child)},
 		{"external", with(Link(LinkProps{Href: "https://x.test", IsExternalLink: true, Rel: "me noopener", HasUnderline: true, Color: "primary"}), child)},
 		{"button", with(Link(LinkProps{Label: "Do it", Attrs: []Attr{{"data-on:click", "$n++"}}}), child)},
-		{"disabled", with(Link(LinkProps{Href: "/a", IsDisabled: true, IsStandalone: true, MaxLines: 1}), child)},
+		{"disabled", with(Link(LinkProps{Href: "/a", IsDisabled: true, IsStandalone: true, MaxLines: 1,
+			Attrs: []Attr{{"data-on:click", "@post('/x')"}, {"title", "t"}}}), child)},
 	})
 }
 

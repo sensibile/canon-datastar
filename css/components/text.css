@@ -56,7 +56,9 @@
   :is(.astryx-text, .astryx-heading)[data-wrap='pretty'] { text-wrap: pretty; }
   :is(.astryx-text, .astryx-heading)[data-justify='center'] { text-align: center; }
   :is(.astryx-text, .astryx-heading)[data-justify='end'] { text-align: end; }
-  :is(.astryx-text, .astryx-heading)[data-capsize] { text-box-edge: cap alphabetic; text-box-trim: trim-both; display: block; }
+  :is(.astryx-text, .astryx-heading)[data-capsize] { text-box-edge: cap alphabetic; text-box-trim: trim-both; }
+  /* Truncated text already sets its display; -webkit-line-clamp needs -webkit-box. */
+  :is(.astryx-text, .astryx-heading)[data-capsize]:not([data-truncate]) { display: block; }
   :is(.astryx-text, .astryx-heading)[data-strikethrough] { text-decoration: line-through; }
   .astryx-text[data-tabular] { font-variant-numeric: tabular-nums; }
 }

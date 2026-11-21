@@ -313,6 +313,7 @@ fn link_fixtures() {
                         is_disabled: true,
                         is_standalone: true,
                         max_lines: 1,
+                        attrs: vec![attr("data-on:click", "@post('/x')"), attr("title", "t")],
                         ..Default::default()
                     },
                     child(),

@@ -79,7 +79,18 @@ pub fn link(p: &LinkProps, children: Markup) -> Markup {
             .opt("rel", &rel);
         "a"
     };
-    let a = a.extra(&p.attrs);
+    // A disabled link must not run its Datastar actions.
+    let a = if p.is_disabled {
+        let kept: Vec<Attr> = p
+            .attrs
+            .iter()
+            .filter(|(n, _)| !n.starts_with("data-on:"))
+            .cloned()
+            .collect();
+        a.extra(&kept)
+    } else {
+        a.extra(&p.attrs)
+    };
     let label = text_el(
         &TextProps {
             kind: or(&p.kind, "body").into(),

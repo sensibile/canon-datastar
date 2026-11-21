@@ -71,7 +71,12 @@ func Link(p LinkProps) templ.Component {
 		default:
 			a.set("href", p.Href).opt("target", target).opt("rel", rel)
 		}
-		a.extra(p.Attrs)
+		if p.IsDisabled {
+			// A disabled link must not run its Datastar actions.
+			a.extra(withoutPrefix(p.Attrs, "data-on:"))
+		} else {
+			a.extra(p.Attrs)
+		}
 		label := textEl(TextProps{Type: or(p.Type, "body"), Size: p.Size, Weight: p.Weight, Color: "inherit",
 			Display: p.Display, MaxLines: p.MaxLines, Class: "astryx-link-label"}, children)
 		var external templ.Component

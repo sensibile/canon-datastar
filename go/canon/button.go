@@ -40,6 +40,11 @@ type ButtonProps struct {
 	Attrs             []Attr
 }
 
+// busyGuard blocks activation (click, Enter, Space) while a non-interruptible button is busy,
+// including when Datastar sets aria-busy client-side. Capture listeners on the target run
+// before the caller's data-on:click.
+const busyGuard = "el.ariaBusy === 'true' && !el.hasAttribute('data-interruptible') && (evt.preventDefault(), evt.stopImmediatePropagation())"
+
 var buttonIconSize = map[string]string{"sm": "sm", "md": "sm", "lg": "md"}
 
 // Button renders an Astryx button.
@@ -54,7 +59,9 @@ func Button(p ButtonProps) templ.Component {
 		flag("data-icon-only", p.IsIconOnly).
 		flag("data-disabled", p.IsDisabled).
 		flag("data-interruptible", p.IsInterruptible).
-		when(p.IsIconOnly || p.IsLoading || p.Content != nil, "aria-label", p.Label).
+		// Always named by Label: the visible content is hidden while busy, and Datastar may
+		// set aria-busy after render.
+		opt("aria-label", p.Label).
 		when(p.IsLoading, "aria-busy", "true").
 		when(busyBlocks, "aria-disabled", "true")
 	tag := "button"
@@ -64,7 +71,9 @@ func Button(p ButtonProps) templ.Component {
 	} else {
 		a.set("type", or(p.Type, "button")).flag("disabled", p.IsDisabled)
 	}
-	a.opt("style", decl("width", p.Width)).extra(p.Attrs)
+	a.opt("style", decl("width", p.Width)).
+		set("data-on:click__capture", busyGuard).
+		extra(p.Attrs)
 
 	var icon, label, end templ.Component
 	if p.Icon != "" {

@@ -9,6 +9,11 @@ use crate::icon::{IconProps, icon};
 use crate::misc::{SpinnerProps, spinner};
 use maud::Markup;
 
+/// Blocks activation (click, Enter, Space) while a non-interruptible button is busy, including
+/// when Datastar sets aria-busy client-side. Capture listeners on the target run before the
+/// caller's data-on:click.
+const BUSY_GUARD: &str = "el.ariaBusy === 'true' && !el.hasAttribute('data-interruptible') && (evt.preventDefault(), evt.stopImmediatePropagation())";
+
 /// Props for [`button`] and [`icon_button`].
 #[derive(Clone, Debug, Default)]
 pub struct ButtonProps {
@@ -58,11 +63,9 @@ pub fn button(p: &ButtonProps) -> Markup {
         .flag("data-icon-only", p.is_icon_only)
         .flag("data-disabled", p.is_disabled)
         .flag("data-interruptible", p.is_interruptible)
-        .when(
-            p.is_icon_only || p.is_loading || p.content.is_some(),
-            "aria-label",
-            &p.label,
-        )
+        // Always named by the label: the visible content is hidden while busy, and Datastar may
+        // set aria-busy after render.
+        .opt("aria-label", &p.label)
         .when(p.is_loading, "aria-busy", "true")
         .when(busy_blocks, "aria-disabled", "true");
     let tag = if as_link {
@@ -77,7 +80,10 @@ pub fn button(p: &ButtonProps) -> Markup {
             .flag("disabled", p.is_disabled);
         "button"
     };
-    let a = a.opt("style", &decl("width", &p.width)).extra(&p.attrs);
+    let a = a
+        .opt("style", &decl("width", &p.width))
+        .set("data-on:click__capture", BUSY_GUARD)
+        .extra(&p.attrs);
 
     let icon_m = (!p.icon.is_empty()).then(|| {
         let icon_size = if size == "lg" { "md" } else { "sm" };
