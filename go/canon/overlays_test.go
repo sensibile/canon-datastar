@@ -67,7 +67,8 @@ func TestTabListFixtures(t *testing.T) {
 		{"tablist", TabList(TabListProps{Value: "b", Signal: "tab", Role: "tablist", Size: "lg", Layout: "fill", HasDivider: true,
 			Label: "Sections", Class: "x", Attrs: []Attr{{"data-x", "1"}}, Tabs: []TabProps{
 				{Value: "a", Label: "A", ID: "tab-a", PanelID: "panel-a", Icon: "clock", SelectedIcon: "check"},
-				{Value: "b", Label: "It's B", ID: "tab-b", PanelID: "panel-b", IsLabelHidden: true, Icon: "search"},
+				{Value: "b", Label: "It's B", ID: "tab-b", PanelID: "panel-b", IsLabelHidden: true, Icon: "search",
+					Attrs: []Attr{{"data-on:click", "@get('/b')"}, {"title", "t"}}},
 			}})},
 		{"nav-signal", TabList(TabListProps{Value: "x", Signal: "view", LabelledBy: "h", Tabs: []TabProps{{Value: "x", Label: "X"}}})},
 		{"panel", with(TabPanel(TabPanelProps{ID: "panel-a", TabID: "tab-a", Value: "a", Signal: "tab", Class: "x"}), child)},

@@ -118,10 +118,18 @@ func tab(t TabProps, p TabListProps, size, layout string, isTabList bool) templ.
 		} else {
 			a.set("data-attr:aria-current", is+" && 'true'")
 		}
-		a.set("data-attr:tabindex", is+" ? 0 : -1").
-			set("data-on:click", "$"+p.Signal+" = "+jsString(t.Value))
-	}
-	if t.IsDisabled {
+		// Selecting runs first, then the caller's own click action (one attribute holds both).
+		click := "$" + p.Signal + " = " + jsString(t.Value)
+		var rest []Attr
+		for _, at := range t.Attrs {
+			if at.Name == "data-on:click" {
+				click += "; " + at.Value
+			} else {
+				rest = append(rest, at)
+			}
+		}
+		a.set("data-attr:tabindex", is+" ? 0 : -1").set("data-on:click", click).extra(rest)
+	} else if t.IsDisabled {
 		a.extra(withoutPrefix(t.Attrs, "data-on:"))
 	} else {
 		a.extra(t.Attrs)

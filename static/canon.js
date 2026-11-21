@@ -155,7 +155,8 @@ function trapTab(e, root) {
 // ---------------------------------------------------------------------------------------------
 // Open layers, innermost last.
 
-/** @type {HTMLElement[]} */
+/** Open popovers and menus, innermost last. Tooltips aren't layers you interact with, so
+ * they stay out of it and never suspend a modal popover's focus trap. @type {HTMLElement[]} */
 const stack = [];
 const isTop = (el) => stack[stack.length - 1] === el;
 
@@ -176,9 +177,12 @@ function safeHide(layer) {
 
 function setExpanded(layer, open) {
   const id = CSS.escape(layer.id);
-  for (const t of doc.querySelectorAll(`[popovertarget="${id}"]`)) {
-    t.setAttribute('aria-expanded', String(open));
-  }
+  const triggers = new Set(doc.querySelectorAll(`[popovertarget="${id}"]`));
+  // A Popover trigger that isn't a <button> has no popovertarget.
+  const anchor = doc.querySelector(`[data-popover="${id}"]`);
+  const resolved = anchor && popoverTrigger(anchor);
+  if (resolved) triggers.add(resolved);
+  for (const t of triggers) t.setAttribute('aria-expanded', String(open));
 }
 
 // Where focus goes when a menu opens: first or last item (keyboard) or the menu (pointer).
@@ -208,7 +212,7 @@ doc.addEventListener(
     const i = stack.indexOf(layer);
     if (i >= 0) stack.splice(i, 1);
     if (open) {
-      stack.push(layer);
+      if (!layer.classList.contains('astryx-tooltip')) stack.push(layer);
       track(layer, anchorFor(layer));
       resizeObserver.observe(layer);
     } else {
@@ -644,17 +648,27 @@ doc.addEventListener('pointerup', (e) => {
 
 const toastTimers = new WeakMap();
 
+/** Starts a toast's auto-hide timer, or restarts it when a patch changed data-auto-hide. */
 function startToast(toast) {
-  if (toastTimers.has(toast)) return;
-  const ms = Number(toast.dataset.autoHide);
-  const state = { remaining: ms, startedAt: 0, timer: 0, pauses: new Set() };
+  const config = toast.dataset.autoHide ?? '';
+  let state = toastTimers.get(toast);
+  if (state) {
+    if (state.config === config) return;
+    clearTimeout(state.timer);
+    state.timer = 0;
+    state.config = config;
+    state.remaining = Number(config);
+    state.run();
+    return;
+  }
+  state = { config, remaining: Number(config), startedAt: 0, timer: 0, pauses: new Set() };
   toastTimers.set(toast, state);
-  if (!ms) return;
   const run = () => {
-    if (state.pauses.size > 0 || state.timer) return;
+    if (!state.remaining || state.pauses.size > 0 || state.timer) return;
     state.startedAt = Date.now();
     state.timer = setTimeout(() => dismissToast(toast, 'auto'), state.remaining);
   };
+  state.run = run;
   const pause = (source) => {
     state.pauses.add(source);
     if (!state.timer) return;
@@ -807,7 +821,7 @@ new MutationObserver((records) => {
   childList: true,
   subtree: true,
   attributes: true,
-  attributeFilter: ['open', 'popovertarget', 'aria-describedby', 'data-tooltip', 'data-popover'],
+  attributeFilter: ['open', 'popovertarget', 'aria-describedby', 'data-tooltip', 'data-popover', 'data-auto-hide'],
 });
 if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', scan, { once: true });
 else scan();

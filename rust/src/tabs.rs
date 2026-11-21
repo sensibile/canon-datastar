@@ -124,16 +124,26 @@ fn tab(t: &TabProps, p: &TabListProps, size: &str, layout: &str, is_tab_list: bo
         } else {
             a.set("data-attr:aria-current", &format!("{is} && 'true'"))
         };
-        a = a.set("data-attr:tabindex", &format!("{is} ? 0 : -1")).set(
-            "data-on:click",
-            &format!("${} = {}", p.signal, js_string(&t.value)),
-        );
-    }
-    a = if t.is_disabled {
-        a.extra(&without_prefix(&t.attrs, "data-on:"))
+        // Selecting runs first, then the caller's own click action (one attribute holds both).
+        let mut click = format!("${} = {}", p.signal, js_string(&t.value));
+        let mut rest = Vec::new();
+        for (name, value) in &t.attrs {
+            if name == "data-on:click" {
+                click.push_str("; ");
+                click.push_str(value);
+            } else {
+                rest.push((name.clone(), value.clone()));
+            }
+        }
+        a = a
+            .set("data-attr:tabindex", &format!("{is} ? 0 : -1"))
+            .set("data-on:click", &click)
+            .extra(&rest);
+    } else if t.is_disabled {
+        a = a.extra(&without_prefix(&t.attrs, "data-on:"));
     } else {
-        a.extra(&t.attrs)
-    };
+        a = a.extra(&t.attrs);
+    }
 
     let tab_icon = |name: &str, state: &str| {
         el(

@@ -1038,6 +1038,7 @@ fn tab_list_fixtures() {
                             panel_id: s("panel-b"),
                             is_label_hidden: true,
                             icon: s("search"),
+                            attrs: vec![attr("data-on:click", "@get('/b')"), attr("title", "t")],
                             ..Default::default()
                         },
                     ],
