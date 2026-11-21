@@ -130,22 +130,24 @@ type HeadingProps struct {
 
 // Heading renders an h1–h6 around its children.
 func Heading(p HeadingProps) templ.Component {
-	return withChildren(func(children templ.Component) templ.Component {
-		level := p.Level
-		if level < 1 || level > 6 {
-			level = 2
-		}
-		lv := strconv.Itoa(level)
-		a := newAttrs().set("class", cls("astryx-heading", p.Class))
-		if p.AccessibilityLevel != 0 && p.AccessibilityLevel != level {
-			a.set("aria-level", strconv.Itoa(p.AccessibilityLevel))
-		}
-		a.set("data-level", lv).
-			opt("data-type", p.Type).
-			set("data-color", or(p.Color, "primary")).
-			opt("data-weight", p.Weight)
-		textLayout(a, or(p.Display, "block"), p.MaxLines, p.WordBreak, p.Justify, p.TextWrap, p.HasCapsize, p.HasStrikethrough)
-		a.opt("style", clampStyle(p.MaxLines)).extra(p.Attrs)
-		return el("h"+lv, a, children)
-	})
+	return withChildren(func(children templ.Component) templ.Component { return headingEl(p, children) })
+}
+
+func headingEl(p HeadingProps, children templ.Component) templ.Component {
+	level := p.Level
+	if level < 1 || level > 6 {
+		level = 2
+	}
+	lv := strconv.Itoa(level)
+	a := newAttrs().set("class", cls("astryx-heading", p.Class))
+	if p.AccessibilityLevel != 0 && p.AccessibilityLevel != level {
+		a.set("aria-level", strconv.Itoa(p.AccessibilityLevel))
+	}
+	a.set("data-level", lv).
+		opt("data-type", p.Type).
+		set("data-color", or(p.Color, "primary")).
+		opt("data-weight", p.Weight)
+	textLayout(a, or(p.Display, "block"), p.MaxLines, p.WordBreak, p.Justify, p.TextWrap, p.HasCapsize, p.HasStrikethrough)
+	a.opt("style", clampStyle(p.MaxLines)).extra(p.Attrs)
+	return el("h"+lv, a, children)
 }

@@ -148,3 +148,29 @@ pub(crate) fn join_ids(ids: &[&str]) -> String {
         .collect::<Vec<_>>()
         .join(" ")
 }
+
+/// Drops attributes whose name starts with `prefix` (e.g. "data-on:" handlers).
+pub(crate) fn without_prefix(list: &[Attr], prefix: &str) -> Vec<Attr> {
+    list.iter()
+        .filter(|(n, _)| !n.starts_with(prefix))
+        .cloned()
+        .collect()
+}
+
+/// Quotes `s` as a single-quoted JavaScript string for Datastar expressions.
+pub(crate) fn js_string(s: &str) -> String {
+    let mut out = String::from("'");
+    for c in s.chars() {
+        match c {
+            '\\' | '\'' => {
+                out.push('\\');
+                out.push(c);
+            }
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            c => out.push(c),
+        }
+    }
+    out.push('\'');
+    out
+}

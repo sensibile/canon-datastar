@@ -1,0 +1,95 @@
+/* DropdownMenu. Port of Astryx packages/core/src/DropdownMenu (MIT, Meta Platforms, Inc.).
+ * Markup: trigger <button class="astryx-button" popovertarget="ID-surface" aria-haspopup="menu">
+ *   <div popover id="ID-surface" class="astryx-layer astryx-dropdown-menu-surface">
+ *     [<div class="astryx-dropdown-menu-region">header]
+ *     <div id="ID" role="menu" class="astryx-dropdown-menu">items</div> [footer region]
+ * Item: <button|a role="menuitem" class="astryx-dropdown-menu-item" data-variant [aria-disabled]>
+ *   [icon] <span class="astryx-dropdown-menu-item-text"><span class="astryx-dropdown-menu-item-label">…
+ *   [<span class="astryx-dropdown-menu-item-description">] [<span class="astryx-dropdown-menu-item-end">] */
+@layer astryx-base {
+  .astryx-button[aria-haspopup='menu'][aria-expanded='true'] {
+    background-image: linear-gradient(var(--color-overlay-pressed), var(--color-overlay-pressed));
+  }
+  .astryx-layer.astryx-dropdown-menu-surface {
+    --_dropdown-menu-radius: var(--radius-container);
+    --_dropdown-menu-padding: var(--spacing-1);
+    display: none;
+    flex-direction: column;
+    box-sizing: border-box;
+    max-height: calc(100vh - 16px);
+    background-color: var(--color-background-popover);
+    color: var(--color-text-primary);
+    border-radius: var(--_dropdown-menu-radius);
+    box-shadow: var(--shadow-low);
+  }
+  .astryx-layer.astryx-dropdown-menu-surface:popover-open { display: flex; }
+  @media (forced-colors: active) {
+    .astryx-layer.astryx-dropdown-menu-surface { border: 1px solid CanvasText; }
+  }
+  .astryx-dropdown-menu {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-0-5);
+    padding: var(--_dropdown-menu-padding);
+    outline: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    flex: 1 1 auto;
+    min-height: 0;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+  .astryx-dropdown-menu-region { flex-shrink: 0; padding: var(--spacing-1); }
+
+  .astryx-dropdown-menu-item {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    width: 100%;
+    padding-block: var(--spacing-1-5);
+    padding-inline: var(--spacing-2);
+    border: 0 none;
+    border-radius: max(0px, calc(var(--_dropdown-menu-radius, var(--spacing-2)) - var(--_dropdown-menu-padding, var(--spacing-1))));
+    background-color: transparent;
+    font-family: var(--font-family-body);
+    font-size: var(--text-label-size);
+    line-height: var(--text-label-leading);
+    color: var(--color-text-primary);
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
+    outline-offset: calc(-1 * var(--focus-outline-width));
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+  .astryx-dropdown-menu-item:focus { outline: none; background-color: var(--color-overlay-hover); }
+  .astryx-dropdown-menu-item:focus-visible { outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color); }
+  @media (hover: hover) {
+    .astryx-dropdown-menu-item:active:not([aria-disabled='true']) { background-color: var(--color-overlay-pressed); }
+  }
+  .astryx-dropdown-menu-item[aria-disabled='true'] { opacity: 0.5; cursor: default; }
+  .astryx-dropdown-menu-item[data-variant='destructive'] { color: var(--color-text-error); }
+  .astryx-dropdown-menu-item-text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+  .astryx-dropdown-menu-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .astryx-dropdown-menu-item-description {
+    font-size: var(--text-supporting-size);
+    line-height: var(--text-supporting-leading);
+    color: var(--color-text-secondary);
+  }
+  .astryx-dropdown-menu-item[data-variant='destructive'] .astryx-dropdown-menu-item-description { color: var(--color-text-error); }
+  .astryx-dropdown-menu-item-end { display: inline-flex; align-items: center; flex-shrink: 0; color: var(--color-text-secondary); }
+
+  .astryx-dropdown-menu-group { display: flex; flex-direction: column; gap: var(--spacing-0-5); }
+  .astryx-dropdown-menu-group-title {
+    padding-block: var(--spacing-1);
+    padding-inline: var(--spacing-2);
+    font-size: var(--text-supporting-size);
+    line-height: var(--text-supporting-leading);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+  }
+  .astryx-dropdown-menu-divider { margin-block: var(--spacing-1); }
+}

@@ -1,0 +1,131 @@
+/* TabList and Tab. Port of Astryx packages/core/src/TabList (MIT, Meta Platforms, Inc.).
+ * Markup: <nav|div class="astryx-tab-list" data-size data-layout [data-divider]>
+ *   <div class="astryx-tab-strip" [role="tablist"]>
+ *     <button|a class="astryx-tab" data-tab-value data-size data-layout [data-selected] …>
+ *       <span class="astryx-tab-hover"> [<span class="astryx-tab-icon">]
+ *       <span class="astryx-tab-label"><span class="astryx-tab-label-text"><span class="astryx-tab-label-sizer">
+ *       [<span class="astryx-tab-end">] <span class="astryx-tab-indicator" [data-selected]> */
+@layer astryx-base {
+  .astryx-tab-list {
+    display: flex;
+    align-items: stretch;
+    gap: var(--spacing-0-5);
+    max-width: 100%;
+    min-width: 0;
+    position: relative;
+  }
+  .astryx-tab-list[data-layout='fill'] { width: 100%; }
+  .astryx-tab-list[data-divider] {
+    border-bottom: var(--border-width) solid var(--color-border);
+    padding-block-end: var(--spacing-1);
+    --_tab-indicator-bottom: calc(-1 * (var(--spacing-1) + var(--border-width)));
+  }
+  .astryx-tab-strip {
+    --_tab-strip-bleed: 0px;
+    display: flex;
+    align-items: stretch;
+    gap: inherit;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-self: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    /* Room for focus rings and the indicator inside the scroll box. */
+    --_block-end-bleed: max(var(--_tab-strip-bleed), calc(-1 * var(--_tab-indicator-bottom, -1px)));
+    padding-block: var(--_tab-strip-bleed) var(--_block-end-bleed);
+    margin-block: calc(-1 * var(--_tab-strip-bleed)) calc(-1 * var(--_block-end-bleed));
+    padding-inline: var(--_tab-strip-bleed);
+    margin-inline: calc(-1 * var(--_tab-strip-bleed));
+  }
+  .astryx-tab-strip:has(:focus-visible) {
+    --_tab-strip-bleed: calc(var(--focus-outline-width) + var(--focus-outline-offset));
+  }
+  .astryx-tab-strip::-webkit-scrollbar { display: none; }
+  .astryx-tab-list[data-layout='fill'] .astryx-tab-strip { align-self: stretch; }
+
+  .astryx-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-1);
+    padding-inline: var(--spacing-3);
+    background-color: transparent;
+    border: 0 none;
+    border-radius: var(--radius-element);
+    font-family: inherit;
+    font-size: var(--text-label-size);
+    line-height: var(--text-label-leading);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    outline: 0 none;
+    transition: color var(--duration-fast) var(--ease-standard);
+  }
+  .astryx-tab:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: var(--focus-outline-offset);
+  }
+  .astryx-tab[data-size='sm'] { min-height: var(--size-element-sm); }
+  .astryx-tab[data-size='md'] { min-height: var(--size-element-md); }
+  .astryx-tab[data-size='lg'] { min-height: var(--size-element-lg); }
+  .astryx-tab[data-layout='fill'] { flex: 1; }
+  .astryx-tab[data-selected] { color: var(--color-text-primary); font-weight: var(--font-weight-semibold); }
+  .astryx-tab[aria-disabled='true'] { cursor: default; opacity: 0.5; }
+
+  .astryx-tab-hover {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-element);
+    pointer-events: none;
+    transition: background-color var(--duration-fast) var(--ease-standard);
+  }
+  @media (hover: hover) {
+    .astryx-tab:not([aria-disabled='true']):hover .astryx-tab-hover { background-color: var(--color-overlay-hover); }
+  }
+  .astryx-tab:not([aria-disabled='true']):active .astryx-tab-hover { background-color: var(--color-overlay-pressed); }
+  @media (pointer: coarse) {
+    .astryx-tab:active .astryx-tab-hover { background-color: transparent; }
+  }
+
+  .astryx-tab-indicator {
+    position: absolute;
+    bottom: var(--_tab-indicator-bottom, -1px);
+    inset-inline: var(--spacing-3);
+    height: 2px;
+    border-radius: var(--radius-full);
+    pointer-events: none;
+    background-color: transparent;
+    opacity: 0;
+    transition-property: opacity, background-color;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+  }
+  .astryx-tab[data-selected] .astryx-tab-indicator { background-color: var(--color-accent); opacity: 1; }
+  .astryx-tab-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .astryx-tab[data-size='sm'] .astryx-tab-icon { width: 14px; height: 14px; }
+  .astryx-tab[data-size='md'] .astryx-tab-icon { width: 16px; height: 16px; }
+  .astryx-tab[data-size='lg'] .astryx-tab-icon { width: 18px; height: 18px; }
+  /* With a selected icon, show the one that matches the state. */
+  .astryx-tab[data-selected] .astryx-tab-icon[data-icon-state='idle'],
+  .astryx-tab:not([data-selected]) .astryx-tab-icon[data-icon-state='selected'] { display: none; }
+  .astryx-tab-label { display: inline-grid; text-align: center; }
+  .astryx-tab-label-text,
+  .astryx-tab-label-sizer { grid-area: 1 / 1; align-self: center; }
+  /* Reserves the bold width so selecting a tab doesn't shift its neighbours. */
+  .astryx-tab-label-sizer { visibility: hidden; pointer-events: none; font-weight: var(--font-weight-semibold); }
+  .astryx-tab-end { display: inline-flex; align-items: center; flex-shrink: 0; }
+}
+
+@layer astryx-base {
+  .astryx-tab-panel { outline: 0 none; }
+  .astryx-tab-panel:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: var(--focus-outline-offset);
+  }
+}

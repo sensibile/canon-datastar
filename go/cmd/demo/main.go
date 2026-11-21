@@ -31,6 +31,39 @@ func main() {
 			log.Print(err)
 		}
 	})
+	mux.HandleFunc("GET /overlays", func(w http.ResponseWriter, r *http.Request) {
+		theme, mode := themeFromQuery(r)
+		if err := overlaysIndex(theme, mode).Render(r.Context(), w); err != nil {
+			log.Print(err)
+		}
+	})
+	// Toast over SSE: append a server-rendered Toast to the viewport.
+	mux.HandleFunc("POST /demo/toast", func(w http.ResponseWriter, r *http.Request) {
+		sse := datastar.NewSSE(w, r)
+		t := canon.Toast(canon.ToastProps{Type: r.URL.Query().Get("type"), Body: r.URL.Query().Get("body")})
+		if err := sse.PatchElementTempl(t, datastar.WithSelectorID("astryx-toasts"), datastar.WithModeAppend()); err != nil {
+			log.Print(err)
+		}
+	})
+	// Dialog over SSE: close the confirm dialog through its signal and show a toast.
+	mux.HandleFunc("POST /demo/delete", func(w http.ResponseWriter, r *http.Request) {
+		var signals struct {
+			Deleted int `json:"deleted"`
+		}
+		if err := datastar.ReadSignals(r, &signals); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		sse := datastar.NewSSE(w, r)
+		time.Sleep(800 * time.Millisecond)
+		if err := sse.MarshalAndPatchSignals(map[string]any{"confirmOpen": false, "deleted": signals.Deleted + 1}); err != nil {
+			log.Print(err)
+		}
+		if err := sse.PatchElementTempl(canon.Toast(canon.ToastProps{Body: "Project deleted"}),
+			datastar.WithSelectorID("astryx-toasts"), datastar.WithModeAppend()); err != nil {
+			log.Print(err)
+		}
+	})
 	// Datastar demo: the button sets $saving, posts its signals here, and this SSE response
 	// patches $saving back to false (clearing aria-busy) after a short delay.
 	mux.HandleFunc("POST /demo/save", func(w http.ResponseWriter, r *http.Request) {

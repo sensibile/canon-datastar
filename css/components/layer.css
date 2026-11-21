@@ -1,0 +1,45 @@
+/* Layer: the anchored top-layer surface behind Tooltip, Popover and DropdownMenu. Port of the
+ * "context" mode of Astryx packages/core/src/Layer (MIT, Meta Platforms, Inc.).
+ * Markup: <div popover class="astryx-layer ..." data-placement data-alignment [data-match-width]>.
+ * static/canon.js positions it next to its trigger and writes the side it used to data-placement. */
+@layer astryx-base {
+  .astryx-layer {
+    position: fixed;
+    inset: auto;
+    left: 0;
+    top: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: visible;
+    background: transparent;
+    color: inherit;
+    width: max-content;
+    max-width: calc(100vw - 16px);
+    --_step: min(var(--spacing-2), var(--_astryx-layer-enter-gap, var(--spacing-2)));
+    animation-duration: var(--duration-fast-max);
+    animation-timing-function: var(--ease-standard);
+    animation-fill-mode: backwards;
+    transform-origin: var(--_astryx-layer-enter-origin, 50% 50%);
+  }
+  .astryx-layer[data-placement='below'] { animation-name: astryx-enter-below; }
+  .astryx-layer[data-placement='above'] { animation-name: astryx-enter-above; }
+  .astryx-layer[data-placement='end'] { animation-name: astryx-enter-end; }
+  .astryx-layer[data-placement='start'] { animation-name: astryx-enter-start; }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-layer[data-placement] { animation-name: none; }
+  }
+}
+
+@keyframes astryx-enter-below {
+  from { opacity: 0; transform: translateY(calc(-1 * var(--_step))) scale(0.95); }
+}
+@keyframes astryx-enter-above {
+  from { opacity: 0; transform: translateY(var(--_step)) scale(0.95); }
+}
+@keyframes astryx-enter-end {
+  from { opacity: 0; transform: translateX(calc(-1 * var(--_step))) scale(0.95); }
+}
+@keyframes astryx-enter-start {
+  from { opacity: 0; transform: translateX(var(--_step)) scale(0.95); }
+}

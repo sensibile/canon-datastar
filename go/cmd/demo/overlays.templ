@@ -1,0 +1,145 @@
+package main
+
+import "github.com/sensibile/canon-datastar/go/canon"
+
+templ overlaysIndex(theme string, mode canon.ThemeMode) {
+	@layout("canon-datastar · Overlays", theme, mode) {
+		@overlaysPage()
+	}
+}
+
+templ filtersContent() {
+	<div class="demo-stack">
+		@canon.Heading(canon.HeadingProps{Level: 4}) {
+			Filters
+		}
+		@canon.CheckboxInput(canon.CheckboxInputProps{Label: "Only open issues", ID: "f-open"})
+		@canon.CheckboxInput(canon.CheckboxInputProps{Label: "Assigned to me", ID: "f-mine"})
+	</div>
+}
+
+templ shareContent() {
+	<div class="demo-stack">
+		@canon.TextInput(canon.TextInputProps{Label: "Invite by email", ID: "share-email", Placeholder: "name@example.com"})
+		@canon.Button(canon.ButtonProps{Label: "Send invite", Variant: "primary", Attrs: []canon.Attr{
+			canon.A("data-on:click", "$shareOpen = false; canon.toast({body: 'Invite sent'})"),
+		}})
+	</div>
+}
+
+templ menuItems() {
+	@canon.DropdownMenuItem(canon.DropdownMenuItemProps{Label: "Edit", Icon: "wrench", Attrs: []canon.Attr{
+		canon.A("data-on:click", "canon.toast({body: 'Edit chosen'})"),
+	}})
+	@canon.DropdownMenuItem(canon.DropdownMenuItemProps{Label: "Duplicate", Icon: "copy", Description: "Makes a copy in this folder", Attrs: []canon.Attr{
+		canon.A("data-on:click", "@post('/demo/toast?body=Duplicated')"),
+	}})
+	@canon.DropdownMenuItem(canon.DropdownMenuItemProps{Label: "Archive", IsDisabled: true})
+	@canon.DropdownMenuDivider()
+	@canon.DropdownMenuGroup(canon.DropdownMenuGroupProps{Title: "Links"}) {
+		@canon.DropdownMenuItem(canon.DropdownMenuItemProps{Label: "Astryx docs", Icon: "externalLink", Href: "https://astryx.atmeta.com", Target: "_blank"})
+	}
+	@canon.DropdownMenuDivider()
+	@canon.DropdownMenuItem(canon.DropdownMenuItemProps{Label: "Delete", Icon: "close", Variant: "destructive", Attrs: []canon.Attr{
+		canon.A("data-on:click", "$confirmOpen = true"),
+	}})
+}
+
+var demoTabs = []canon.TabProps{
+	{Value: "overview", Label: "Overview", ID: "tab-overview", PanelID: "panel-overview", Icon: "info"},
+	{Value: "activity", Label: "Activity", ID: "tab-activity", PanelID: "panel-activity", Icon: "clock"},
+	{Value: "settings", Label: "Settings", ID: "tab-settings", PanelID: "panel-settings", Icon: "wrench"},
+	{Value: "billing", Label: "Billing", IsDisabled: true},
+}
+
+templ overlaysPage() {
+	<h1>Overlays</h1>
+	<p class="demo-lead">Native popover and dialog elements, positioned and wired by static/canon.js, driven by Datastar signals and SSE.</p>
+	<div data-signals="{confirmOpen: false, shareOpen: false, tab: 'overview', deleted: 0}">
+		@demoSection("Tooltip") {
+			@canon.Tooltip(canon.TooltipProps{Content: "Copies the link to your clipboard"}) {
+				@canon.Button(canon.ButtonProps{Label: "Copy link", Icon: "copy"})
+			}
+			@canon.Tooltip(canon.TooltipProps{Content: "Shows below, after 600ms", ID: "tip-below", Placement: "below", Delay: 600}) {
+				@canon.Button(canon.ButtonProps{Label: "Slow tooltip", Variant: "ghost"})
+			}
+			<span>
+				Plain text with a{ " " }
+				@canon.Tooltip(canon.TooltipProps{Content: "A word with a tooltip", ID: "tip-text"}) {
+					tooltip
+				}
+			</span>
+			<span>
+				Billing cycle
+				@canon.InfoTip(canon.InfoTipProps{Content: "You are billed on the first day of each month."})
+			</span>
+		}
+		@demoSection("Popover") {
+			@canon.Popover(canon.PopoverProps{ID: "filters", Label: "Filters", Content: filtersContent(), Width: "260px"}) {
+				@canon.Button(canon.ButtonProps{Label: "Filters", Icon: "funnel"})
+			}
+			@canon.Popover(canon.PopoverProps{ID: "share", Label: "Share", Content: shareContent(), Width: "300px",
+				IsModal: true, HasCloseButton: true, Signal: "shareOpen"}) {
+				@canon.Button(canon.ButtonProps{Label: "Share (modal, signal)", Variant: "primary"})
+			}
+			<span class="demo-note" data-text="'shareOpen: ' + $shareOpen"></span>
+		}
+		@demoSection("DropdownMenu") {
+			@canon.DropdownMenu(canon.DropdownMenuProps{ID: "actions", Button: canon.ButtonProps{Label: "Actions"}}) {
+				@menuItems()
+			}
+			@canon.DropdownMenu(canon.DropdownMenuProps{ID: "more", Button: canon.ButtonProps{Label: "More", Icon: "moreHorizontal", IsIconOnly: true, Variant: "ghost"},
+				NoChevron: true, MenuWidth: "220px", Alignment: "end"}) {
+				@menuItems()
+			}
+		}
+		@demoSection("Dialog") {
+			@canon.Button(canon.ButtonProps{Label: "Delete project", Variant: "destructive", Attrs: []canon.Attr{canon.A("data-on:click", "$confirmOpen = true")}})
+			@canon.Button(canon.ButtonProps{Label: "Open settings", Attrs: []canon.Attr{canon.A("data-on:click", "canon.dialog('settings')")}})
+			<span class="demo-note" data-text="'Deleted ' + $deleted + ' times'"></span>
+			@canon.Dialog(canon.DialogProps{ID: "confirm", Purpose: "form", Signal: "confirmOpen"}) {
+				@canon.DialogHeader(canon.DialogHeaderProps{Title: "Delete project?", HasCloseButton: true})
+				@canon.Text(canon.TextProps{As: "p"}) {
+					This removes the project and its history. The server confirms over SSE.
+				}
+				<div class="demo-row demo-end">
+					@canon.Button(canon.ButtonProps{Label: "Cancel", Attrs: []canon.Attr{canon.A("data-dialog-close", "")}})
+					@canon.Button(canon.ButtonProps{Label: "Delete", Variant: "destructive", Attrs: []canon.Attr{
+						canon.A("data-on:click", "@post('/demo/delete')"),
+						canon.A("data-indicator", "deleting"),
+						canon.A("data-attr:aria-busy", "$deleting && 'true'"),
+					}})
+				</div>
+			}
+			@canon.Dialog(canon.DialogProps{ID: "settings", Width: "520px"}) {
+				@canon.DialogHeader(canon.DialogHeaderProps{Title: "Settings", Subtitle: "Closes on Escape or a backdrop press", HasCloseButton: true, HasDivider: true})
+				@canon.TextInput(canon.TextInputProps{Label: "Project name", ID: "settings-name", Value: "canon"})
+				@canon.Switch(canon.SwitchProps{Label: "Email notifications", ID: "settings-notify", Checked: true})
+			}
+		}
+		<section class="demo-section">
+			<h2>TabList</h2>
+			@canon.TabList(canon.TabListProps{Value: "overview", Signal: "tab", Role: "tablist", Label: "Project", HasDivider: true, Tabs: demoTabs})
+			@canon.TabPanel(canon.TabPanelProps{ID: "panel-overview", TabID: "tab-overview", Value: "overview", Signal: "tab", IsSelected: true}) {
+				<p class="demo-panel">Overview panel. The selected tab is the Datastar signal <code>$tab</code>.</p>
+			}
+			@canon.TabPanel(canon.TabPanelProps{ID: "panel-activity", TabID: "tab-activity", Value: "activity", Signal: "tab"}) {
+				<p class="demo-panel">Activity panel.</p>
+			}
+			@canon.TabPanel(canon.TabPanelProps{ID: "panel-settings", TabID: "tab-settings", Value: "settings", Signal: "tab"}) {
+				<p class="demo-panel">Settings panel.</p>
+			}
+			<h3>Navigation</h3>
+			@canon.TabList(canon.TabListProps{Value: "/overlays", Size: "sm", Label: "Demo pages", Tabs: []canon.TabProps{
+				{Value: "/", Label: "Tokens", Href: "/"},
+				{Value: "/components", Label: "Components", Href: "/components"},
+				{Value: "/overlays", Label: "Overlays", Href: "/overlays"},
+			}})
+		</section>
+		@demoSection("Toast") {
+			@canon.Button(canon.ButtonProps{Label: "Toast from the server", Attrs: []canon.Attr{canon.A("data-on:click", "@post('/demo/toast?body=Saved on the server')")}})
+			@canon.Button(canon.ButtonProps{Label: "Error toast", Variant: "destructive", Attrs: []canon.Attr{canon.A("data-on:click", "@post('/demo/toast?type=error&body=Could not reach the server')")}})
+			@canon.Button(canon.ButtonProps{Label: "Toast in the browser", Variant: "ghost", Attrs: []canon.Attr{canon.A("data-on:click", "canon.toast({body: 'Copied to clipboard'})")}})
+		}
+	</div>
+}

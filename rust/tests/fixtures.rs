@@ -676,3 +676,500 @@ fn switch_fixtures() {
         ],
     );
 }
+
+fn raw(v: &str) -> Markup {
+    PreEscaped(v.into())
+}
+
+#[test]
+fn tooltip_fixtures() {
+    check(
+        "tooltip",
+        vec![
+            (
+                "default",
+                tooltip(
+                    &TooltipProps {
+                        content: s("Copy link"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "full",
+                tooltip(
+                    &TooltipProps {
+                        id: s("tip"),
+                        content_markup: Some(raw("<b>Rich</b>")),
+                        placement: s("end"),
+                        alignment: s("start"),
+                        delay: 500,
+                        hide_delay: 100,
+                        focus_trigger: s("always"),
+                        hover_indication: s("always"),
+                        class: s("x"),
+                        attrs: vec![attr("data-x", "1")],
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "no-indication",
+                tooltip(
+                    &TooltipProps {
+                        content: s("Plain"),
+                        focus_trigger: s("never"),
+                        hover_indication: s("never"),
+                        ..Default::default()
+                    },
+                    raw("Text"),
+                ),
+            ),
+            (
+                "disabled",
+                tooltip(
+                    &TooltipProps {
+                        content: s("Hidden"),
+                        is_disabled: true,
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "info-tip",
+                info_tip(&InfoTipProps {
+                    content: s("Billed monthly"),
+                    size: s("md"),
+                    placement: s("below"),
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn popover_fixtures() {
+    let trigger = || {
+        button(&ButtonProps {
+            label: s("Filters"),
+            ..Default::default()
+        })
+    };
+    check(
+        "popover",
+        vec![
+            (
+                "default",
+                popover(
+                    &PopoverProps {
+                        id: s("filters"),
+                        content: Some(child()),
+                        ..Default::default()
+                    },
+                    trigger(),
+                ),
+            ),
+            (
+                "full",
+                popover(
+                    &PopoverProps {
+                        id: s("share"),
+                        content: Some(child()),
+                        placement: s("above"),
+                        alignment: s("end"),
+                        width: s("320px"),
+                        padding: s("4"),
+                        label: s("Share"),
+                        is_modal: true,
+                        has_close_button: true,
+                        close_button_label: s("Done"),
+                        no_light_dismiss: true,
+                        signal: s("shareOpen"),
+                        class: s("x"),
+                        attrs: vec![attr("data-x", "1")],
+                        ..Default::default()
+                    },
+                    trigger(),
+                ),
+            ),
+            (
+                "no-role",
+                popover(
+                    &PopoverProps {
+                        content: Some(child()),
+                        role: s("none"),
+                        has_auto_focus: true,
+                        no_escape_dismiss: true,
+                        ..Default::default()
+                    },
+                    trigger(),
+                ),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn dialog_fixtures() {
+    check(
+        "dialog",
+        vec![
+            (
+                "default",
+                dialog(
+                    &DialogProps {
+                        id: s("confirm"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "full",
+                dialog(
+                    &DialogProps {
+                        id: s("edit"),
+                        width: s("600px"),
+                        max_height: s("90dvh"),
+                        purpose: s("required"),
+                        padding: s("6"),
+                        label: s("Edit"),
+                        signal: s("editOpen"),
+                        class: s("x"),
+                        attrs: vec![attr("data-x", "1")],
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "fullscreen",
+                dialog(
+                    &DialogProps {
+                        variant: s("fullscreen"),
+                        purpose: s("form"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "header",
+                dialog_header(&DialogHeaderProps {
+                    title: s("Delete file?"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "header-full",
+                dialog_header(&DialogHeaderProps {
+                    title: s("Settings"),
+                    subtitle: s("Workspace"),
+                    title_id: s("settings-title"),
+                    has_close_button: true,
+                    close_label: s("Close settings"),
+                    start_content: Some(raw("<i>s</i>")),
+                    end_content: Some(raw("<i>e</i>")),
+                    has_divider: true,
+                    class: s("x"),
+                    attrs: vec![attr("data-x", "1")],
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn dropdown_menu_fixtures() {
+    let items = || {
+        maud::html! {
+            (dropdown_menu_item(&DropdownMenuItemProps {
+                label: s("Edit"),
+                icon: s("wrench"),
+                attrs: vec![attr("data-on:click", "@post('/edit')")],
+                ..Default::default()
+            }))
+            (dropdown_menu_divider())
+            (dropdown_menu_group(
+                &DropdownMenuGroupProps { title: s("More actions"), ..Default::default() },
+                dropdown_menu_item(&DropdownMenuItemProps {
+                    label: s("Docs"),
+                    description: s("Opens in a new tab"),
+                    href: s("/docs"),
+                    target: s("_blank"),
+                    ..Default::default()
+                }),
+            ))
+        }
+    };
+    check(
+        "dropdown-menu",
+        vec![
+            (
+                "default",
+                dropdown_menu(
+                    &DropdownMenuProps {
+                        button: ButtonProps {
+                            label: s("Actions"),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    items(),
+                ),
+            ),
+            (
+                "full",
+                dropdown_menu(
+                    &DropdownMenuProps {
+                        id: s("row"),
+                        button: ButtonProps {
+                            label: s("Row"),
+                            icon: s("moreHorizontal"),
+                            is_icon_only: true,
+                            attrs: vec![attr("data-x", "1")],
+                            ..Default::default()
+                        },
+                        no_chevron: true,
+                        placement: s("above"),
+                        alignment: s("end"),
+                        menu_width: s("240px"),
+                        menu_max_height: s("300px"),
+                        header: Some(raw("<i>h</i>")),
+                        footer: Some(raw("<i>f</i>")),
+                        class: s("x"),
+                    },
+                    items(),
+                ),
+            ),
+            (
+                "item-full",
+                dropdown_menu_item(&DropdownMenuItemProps {
+                    label: s("Delete"),
+                    variant: s("destructive"),
+                    icon: s("close"),
+                    keep_open: true,
+                    end_content: Some(raw("<kbd>D</kbd>")),
+                    class: s("x"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "item-disabled",
+                dropdown_menu_item(&DropdownMenuItemProps {
+                    label: s("Archive"),
+                    href: s("/a"),
+                    is_disabled: true,
+                    attrs: vec![attr("data-on:click", "@post('/a')"), attr("title", "t")],
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn tab_list_fixtures() {
+    let nav_tabs = vec![
+        TabProps {
+            value: s("home"),
+            label: s("Home"),
+            href: s("/"),
+            icon: s("menu"),
+            ..Default::default()
+        },
+        TabProps {
+            value: s("docs"),
+            label: s("Docs"),
+            href: s("/docs"),
+            end_content: Some(raw("<i>3</i>")),
+            ..Default::default()
+        },
+        TabProps {
+            value: s("off"),
+            label: s("Off"),
+            is_disabled: true,
+            attrs: vec![attr("data-on:click", "x()")],
+            ..Default::default()
+        },
+    ];
+    check(
+        "tab-list",
+        vec![
+            (
+                "nav-none",
+                tab_list(&TabListProps {
+                    value: s("none"),
+                    tabs: vec![nav_tabs[2].clone(), nav_tabs[0].clone()],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "nav-disabled",
+                tab_list(&TabListProps {
+                    value: s("off"),
+                    signal: s("nav"),
+                    tabs: vec![nav_tabs[2].clone(), nav_tabs[0].clone()],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "nav",
+                tab_list(&TabListProps {
+                    value: s("home"),
+                    tabs: nav_tabs,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "tablist",
+                tab_list(&TabListProps {
+                    value: s("b"),
+                    signal: s("tab"),
+                    role: s("tablist"),
+                    size: s("lg"),
+                    layout: s("fill"),
+                    has_divider: true,
+                    label: s("Sections"),
+                    class: s("x"),
+                    attrs: vec![attr("data-x", "1")],
+                    tabs: vec![
+                        TabProps {
+                            value: s("a"),
+                            label: s("A"),
+                            id: s("tab-a"),
+                            panel_id: s("panel-a"),
+                            icon: s("clock"),
+                            selected_icon: s("check"),
+                            ..Default::default()
+                        },
+                        TabProps {
+                            value: s("b"),
+                            label: s("It's B"),
+                            id: s("tab-b"),
+                            panel_id: s("panel-b"),
+                            is_label_hidden: true,
+                            icon: s("search"),
+                            attrs: vec![attr("data-on:click", "@get('/b')"), attr("title", "t")],
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "nav-signal",
+                tab_list(&TabListProps {
+                    value: s("x"),
+                    signal: s("view"),
+                    labelled_by: s("h"),
+                    tabs: vec![TabProps {
+                        value: s("x"),
+                        label: s("X"),
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "panel",
+                tab_panel(
+                    &TabPanelProps {
+                        id: s("panel-a"),
+                        tab_id: s("tab-a"),
+                        value: s("a"),
+                        signal: s("tab"),
+                        class: s("x"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            (
+                "panel-selected",
+                tab_panel(
+                    &TabPanelProps {
+                        value: s("b"),
+                        is_selected: true,
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn toast_fixtures() {
+    check(
+        "toast",
+        vec![
+            (
+                "default",
+                toast(&ToastProps {
+                    body: s("Saved"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "error",
+                toast(&ToastProps {
+                    id: s("t1"),
+                    kind: s("error"),
+                    body: s("Failed"),
+                    end_content: Some(raw("<i>retry</i>")),
+                    dismiss_label: s("Close"),
+                    class: s("x"),
+                    attrs: vec![attr("data-x", "1")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "error-timed",
+                toast(&ToastProps {
+                    kind: s("error"),
+                    body_markup: Some(raw("<b>Oops</b>")),
+                    auto_hide_duration: 8000,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "sticky",
+                toast(&ToastProps {
+                    body: s("Pinned"),
+                    is_sticky: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "viewport",
+                toast_viewport(
+                    &ToastViewportProps::default(),
+                    toast(&ToastProps {
+                        body: s("Hi"),
+                        ..Default::default()
+                    }),
+                ),
+            ),
+            (
+                "viewport-top",
+                toast_viewport(
+                    &ToastViewportProps {
+                        id: s("toasts"),
+                        position: s("topStart"),
+                        max_visible: 3,
+                        label: s("Alerts"),
+                        dismiss_label: s("Close"),
+                    },
+                    PreEscaped(String::new()),
+                ),
+            ),
+        ],
+    );
+}
