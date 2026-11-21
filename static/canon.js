@@ -724,9 +724,18 @@ function syncViewport(viewport) {
 // Moving it also re-raises it above the modal in the top layer.
 const toastHomes = new Map(); // viewport -> placeholder comment
 
+// Modal dialogs in the order they opened (document order says nothing about which is on top).
+let modalOrder = [];
+
+function trackModal(d) {
+  modalOrder = modalOrder.filter((m) => m !== d && m.isConnected && m.matches(':modal'));
+  if (d.isConnected && d.matches(':modal')) modalOrder.push(d);
+}
+
 function topModal() {
-  for (let i = stack.length - 1; i >= 0; i--) if (stack[i].matches?.('dialog:modal')) return stack[i];
-  return Array.from(doc.querySelectorAll('dialog:modal')).at(-1) ?? null;
+  modalOrder = modalOrder.filter((m) => m.isConnected && m.matches(':modal'));
+  for (const m of doc.querySelectorAll('dialog:modal')) if (!modalOrder.includes(m)) modalOrder.unshift(m);
+  return modalOrder.at(-1) ?? null;
 }
 
 function homeToasts() {
@@ -878,7 +887,10 @@ new MutationObserver((records) => {
   }
   let raise = false;
   for (const r of records) {
-    if (r.type === 'attributes' && r.attributeName === 'open' && r.target instanceof HTMLDialogElement) raise = true;
+    if (r.type === 'attributes' && r.attributeName === 'open' && r.target instanceof HTMLDialogElement) {
+      trackModal(r.target);
+      raise = true;
+    }
   }
   if (raise) homeToasts();
   queueScan();
@@ -904,6 +916,7 @@ const canon = {
     if (!(d instanceof HTMLDialogElement)) return;
     if (open && !d.open) {
       d.showModal();
+      trackModal(d);
       homeToasts();
     } else if (!open && d.open) d.close();
   },
