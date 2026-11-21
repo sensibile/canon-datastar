@@ -639,7 +639,10 @@ doc.addEventListener('keydown', (e) => {
   if (menu) onMenuKey(e, menu);
 
   const layer = t.closest('.astryx-popover[data-modal]');
-  if (layer && e.key === 'Tab' && isTopModal(layer)) trapTab(e, layer);
+  // A modal dialog opened inside the popover owns Tab (natively) while it's open.
+  const dialog = t.closest('dialog:modal');
+  const dialogInside = dialog != null && layer?.contains(dialog);
+  if (layer && e.key === 'Tab' && isTopModal(layer) && !dialogInside) trapTab(e, layer);
 
   const tabs = t.closest('.astryx-tab-list');
   if (tabs) onTabsKey(e, tabs);
