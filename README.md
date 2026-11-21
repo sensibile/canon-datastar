@@ -115,6 +115,8 @@ and toast timers. Wire it to Datastar like this:
 - Toasts from the server: render one `ToastViewport` per page and patch a `Toast` into it, e.g.
   `sse.PatchElementTempl(canon.Toast(canon.ToastProps{Body: "Saved"}), datastar.WithSelectorID("astryx-toasts"), datastar.WithModeAppend())`
   in Go, or `PatchElements::new(toast(&p).into_string()).selector("#astryx-toasts").mode(ElementPatchMode::Append)` in Rust.
+  While a Dialog is open, canon.js moves the viewport inside it (the rest of the page is inert)
+  and puts it back when the Dialog closes, so patch toasts by the viewport's id, not its position.
 
 Give each overlay an `ID` when a page has more than one of a kind; defaults are derived from the
 content (`tooltip-<slug>`) or fixed (`popover`, `menu`).

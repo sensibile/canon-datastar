@@ -82,14 +82,46 @@ pub fn tab_list(p: &TabListProps) -> Markup {
             .opt("aria-labelledby", &p.labelled_by);
         "nav"
     };
+    let stop = tab_stop(p);
     let tabs = p
         .tabs
         .iter()
-        .map(|t| Some(tab(t, p, size, layout, is_tab_list)));
+        .enumerate()
+        .map(|(i, t)| Some(tab(t, p, size, layout, is_tab_list, Some(i) == stop)));
     el(tag, root.extra(&p.attrs), [Some(el("div", strip, tabs))])
 }
 
-fn tab(t: &TabProps, p: &TabListProps, size: &str, layout: &str, is_tab_list: bool) -> Markup {
+/// The tab in the Tab order: the selected one, or the first enabled tab when no tab matches
+/// `value`, so keyboard users can always reach the list.
+fn tab_stop(p: &TabListProps) -> Option<usize> {
+    p.tabs
+        .iter()
+        .position(|t| t.value == p.value)
+        .or_else(|| p.tabs.iter().position(|t| !t.is_disabled))
+}
+
+/// The value of the first enabled tab, the Tab stop when nothing is selected.
+fn fallback_stop(p: &TabListProps) -> Option<&str> {
+    p.tabs
+        .iter()
+        .find(|t| !t.is_disabled)
+        .map(|t| t.value.as_str())
+}
+
+/// A JS array literal of every tab value.
+fn tab_values(p: &TabListProps) -> String {
+    let vals: Vec<String> = p.tabs.iter().map(|t| js_string(&t.value)).collect();
+    format!("[{}]", vals.join(","))
+}
+
+fn tab(
+    t: &TabProps,
+    p: &TabListProps,
+    size: &str,
+    layout: &str,
+    is_tab_list: bool,
+    is_stop: bool,
+) -> Markup {
     let selected = t.value == p.value;
     let is_link = !t.href.is_empty() && !is_tab_list;
     let mut a = attrs()
@@ -108,7 +140,7 @@ fn tab(t: &TabProps, p: &TabListProps, size: &str, layout: &str, is_tab_list: bo
     } else {
         a.when(selected, "aria-current", "true")
     };
-    a = a.set("tabindex", if selected { "0" } else { "-1" });
+    a = a.set("tabindex", if is_stop { "0" } else { "-1" });
     let tag = if is_link {
         a = a.when(!t.is_disabled, "href", &t.href);
         "a"
@@ -135,8 +167,18 @@ fn tab(t: &TabProps, p: &TabListProps, size: &str, layout: &str, is_tab_list: bo
                 rest.push((name.clone(), value.clone()));
             }
         }
+        let tabindex = if fallback_stop(p) == Some(t.value.as_str()) {
+            // No tab matches the signal: this first enabled tab stays reachable.
+            format!(
+                "{is} || !{}.includes(${}) ? 0 : -1",
+                tab_values(p),
+                p.signal
+            )
+        } else {
+            format!("{is} ? 0 : -1")
+        };
         a = a
-            .set("data-attr:tabindex", &format!("{is} ? 0 : -1"))
+            .set("data-attr:tabindex", &tabindex)
             .set("data-on:click", &click)
             .extra(&rest);
     } else if t.is_disabled {

@@ -718,12 +718,49 @@ function syncViewport(viewport) {
   else safeHide(viewport);
 }
 
-// Re-raise the toast viewport above a modal opened after it.
-function raiseToasts() {
+// A modal dialog makes everything outside it inert, so while one is open the toast viewport
+// moves inside the topmost modal (dismiss buttons stay usable and the live region stays
+// exposed), and moves back to its original place, marked by a comment, when the modal closes.
+// Moving it also re-raises it above the modal in the top layer.
+const toastHomes = new Map(); // viewport -> placeholder comment
+
+function topModal() {
+  for (let i = stack.length - 1; i >= 0; i--) if (stack[i].matches?.('dialog:modal')) return stack[i];
+  return Array.from(doc.querySelectorAll('dialog:modal')).at(-1) ?? null;
+}
+
+function homeToasts() {
+  const modal = topModal();
   for (const v of doc.querySelectorAll('.astryx-toast-viewport')) {
-    if (!v.matches(':popover-open')) continue;
-    safeHide(v);
-    safeShow(v);
+    if (!toastHomes.has(v)) {
+      const mark = doc.createComment('astryx-toast-viewport');
+      v.before(mark);
+      toastHomes.set(v, mark);
+    }
+    placeViewport(v, modal);
+  }
+}
+
+function placeViewport(v, modal) {
+  const mark = toastHomes.get(v);
+  if (modal) {
+    if (v.parentNode !== modal) modal.append(v);
+  } else if (mark.isConnected) {
+    if (mark.nextSibling !== v) mark.after(v);
+  } else if (!v.isConnected) {
+    doc.body.append(v);
+  }
+  // A move closes the popover; re-showing also puts it last (on top) in the top layer.
+  if (v.matches(':popover-open')) safeHide(v);
+  syncViewport(v);
+}
+
+/** Put back a viewport that a patch of its host dialog removed. */
+function rescueToasts() {
+  for (const [v, mark] of toastHomes) {
+    if (v.isConnected) continue;
+    if (mark.isConnected) placeViewport(v, topModal());
+    else toastHomes.delete(v);
   }
 }
 
@@ -835,12 +872,15 @@ function prune() {
 }
 
 new MutationObserver((records) => {
-  if (records.some((r) => r.removedNodes.length > 0)) prune();
+  if (records.some((r) => r.removedNodes.length > 0)) {
+    prune();
+    rescueToasts();
+  }
   let raise = false;
   for (const r of records) {
     if (r.type === 'attributes' && r.attributeName === 'open' && r.target instanceof HTMLDialogElement) raise = true;
   }
-  if (raise) raiseToasts();
+  if (raise) homeToasts();
   queueScan();
 }).observe(doc.documentElement, {
   childList: true,
@@ -864,7 +904,7 @@ const canon = {
     if (!(d instanceof HTMLDialogElement)) return;
     if (open && !d.open) {
       d.showModal();
-      raiseToasts();
+      homeToasts();
     } else if (!open && d.open) d.close();
   },
   /** Open or close a Popover, DropdownMenu surface or Tooltip layer (element or id). */

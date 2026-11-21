@@ -2,6 +2,7 @@ package canon
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/a-h/templ"
 )
@@ -75,14 +76,30 @@ func TabList(p TabListProps) templ.Component {
 		root.opt("aria-label", label).opt("aria-labelledby", p.LabelledBy)
 	}
 	root.extra(p.Attrs)
+	stop := tabStop(p)
 	tabs := make([]templ.Component, len(p.Tabs))
 	for i, t := range p.Tabs {
-		tabs[i] = tab(t, p, size, layout, isTabList)
+		tabs[i] = tab(t, p, size, layout, isTabList, i == stop)
 	}
 	return el(tag, root, el("div", strip, tabs...))
 }
 
-func tab(t TabProps, p TabListProps, size, layout string, isTabList bool) templ.Component {
+// tabStop picks the tab that is in the Tab order: the selected one, or the first enabled tab
+// when no tab matches Value, so keyboard users can always reach the list.
+func tabStop(p TabListProps) int {
+	first := -1
+	for i, t := range p.Tabs {
+		if t.Value == p.Value {
+			return i
+		}
+		if first < 0 && !t.IsDisabled {
+			first = i
+		}
+	}
+	return first
+}
+
+func tab(t TabProps, p TabListProps, size, layout string, isTabList, isStop bool) templ.Component {
 	selected := t.Value == p.Value
 	isLink := t.Href != "" && !isTabList
 	tag := "button"
@@ -100,7 +117,7 @@ func tab(t TabProps, p TabListProps, size, layout string, isTabList bool) templ.
 		a.when(selected, "aria-current", "true")
 	}
 	tabindex := "-1"
-	if selected {
+	if isStop {
 		tabindex = "0"
 	}
 	a.set("tabindex", tabindex)
@@ -128,7 +145,12 @@ func tab(t TabProps, p TabListProps, size, layout string, isTabList bool) templ.
 				rest = append(rest, at)
 			}
 		}
-		a.set("data-attr:tabindex", is+" ? 0 : -1").set("data-on:click", click).extra(rest)
+		tabindex := is + " ? 0 : -1"
+		if fb := fallbackStop(p); fb == t.Value {
+			// No tab matches the signal: this first enabled tab stays reachable.
+			tabindex = is + " || !" + tabValues(p) + ".includes($" + p.Signal + ") ? 0 : -1"
+		}
+		a.set("data-attr:tabindex", tabindex).set("data-on:click", click).extra(rest)
 	} else if t.IsDisabled {
 		a.extra(withoutPrefix(t.Attrs, "data-on:"))
 	} else {
@@ -192,4 +214,23 @@ func TabPanel(p TabPanelProps) templ.Component {
 		a.extra(p.Attrs)
 		return el("div", a, children)
 	})
+}
+
+// fallbackStop is the value of the first enabled tab, the Tab stop when nothing is selected.
+func fallbackStop(p TabListProps) string {
+	for _, t := range p.Tabs {
+		if !t.IsDisabled {
+			return t.Value
+		}
+	}
+	return ""
+}
+
+// tabValues is a JS array literal of every tab value.
+func tabValues(p TabListProps) string {
+	vals := make([]string, len(p.Tabs))
+	for i, t := range p.Tabs {
+		vals[i] = jsString(t.Value)
+	}
+	return "[" + strings.Join(vals, ",") + "]"
 }

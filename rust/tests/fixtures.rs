@@ -1002,6 +1002,14 @@ fn tab_list_fixtures() {
         "tab-list",
         vec![
             (
+                "nav-none",
+                tab_list(&TabListProps {
+                    value: s("none"),
+                    tabs: vec![nav_tabs[2].clone(), nav_tabs[0].clone()],
+                    ..Default::default()
+                }),
+            ),
+            (
                 "nav",
                 tab_list(&TabListProps {
                     value: s("home"),
