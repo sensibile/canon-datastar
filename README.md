@@ -152,7 +152,9 @@ Bind the value with `data-bind` where the comment on each prop says:
   "(12)", "€5") are read back, out-of-range numbers clamp and unreadable text shows "Invalid number".
   Arrow keys, the wheel (while focused) and the steppers step on a grid anchored at `Min`. The
   committed number lives in a hidden input: bind it with `ValueAttrs`. `Format` takes JSON
-  `Intl.NumberFormat` options for the unfocused display.
+  `Intl.NumberFormat` options for the unfocused display. Datastar turns an empty value into `0`
+  for a number signal (and stops updating a `null` one), so a field that can be empty (`HasClear`)
+  binds to a string signal: `{amount: '1234.5'}` reads back `''` when cleared.
 - `Slider`: one value or a range (`Values` with two entries), dragged, clicked or stepped with the
   keyboard. Values live in hidden inputs (`ValueAttrs`, `EndValueAttrs`); `input` fires while moving
   and `change` when a move ends. The value tip is drawn in place rather than as a popover layer.

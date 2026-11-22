@@ -68,11 +68,11 @@ fn number_inputs() -> Markup {
                 has_number_steppers: true, is_integer_only: true, value_attrs: bind("qty"), ..Default::default() }))
             (number_input(&NumberInputProps { id: s("amount"), label: s("Amount"), value: Some(1234.5), has_clear: true,
                 format: s(r#"{"style":"currency","currency":"USD"}"#), description: s("Paste \"(12)\" or \"€5\""),
-                units: s("USD"), ..Default::default() }))
+                units: s("USD"), value_attrs: bind("amount"), ..Default::default() }))
             (number_input(&NumberInputProps { id: s("ratio"), label: s("Ratio (de-DE)"), value: Some(0.5), step: 0.1,
                 locale: s("de-DE"), status: Some(FieldStatus::new("success", "Looks good")), ..Default::default() }))
         }
-        p.demo-panel { "qty: " span data-text="$qty" {} " · " button type="button" data-on:click="$qty = 7" { "Set qty to 7" } }
+        p.demo-panel { "qty: " span data-text="$qty" {} " · " button type="button" data-on:click="$qty = 7" { "Set qty to 7" } " · amount: " span data-text="JSON.stringify($amount)" {} }
     }
 }
 
@@ -203,7 +203,7 @@ pub(crate) fn page() -> Markup {
     html! {
         h1 { "Forms" }
         p.demo-lead { "Server-rendered controls bound to Datastar signals; static/canon.js adds counters, drafts, stepping, dragging and file checks." }
-        div data-signals="{bio: 'Writes Go and Rust.', qty: 3, price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', agree: false}" {
+        div data-signals="{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', agree: false}" {
             (section("TextArea", text_areas()))
             (section("NumberInput", number_inputs()))
             (section("InputGroup", input_groups()))

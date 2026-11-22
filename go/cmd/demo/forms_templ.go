@@ -80,7 +80,7 @@ func submitted(json string) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(json)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `go/cmd/demo/forms.templ`, Line: 14, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/demo/forms.templ`, Line: 14, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -126,7 +126,7 @@ func formsPage() templ.Component {
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<h1>Forms</h1><p class=\"demo-lead\">Server-rendered controls bound to Datastar signals; static/canon.js adds counters, drafts, stepping, dragging and file checks.</p><div data-signals=\"{bio: 'Writes Go and Rust.', qty: 3, price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', agree: false}\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<h1>Forms</h1><p class=\"demo-lead\">Server-rendered controls bound to Datastar signals; static/canon.js adds counters, drafts, stepping, dragging and file checks.</p><div data-signals=\"{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', agree: false}\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -192,7 +192,8 @@ func formsPage() templ.Component {
 				return templ_7745c5c3_Err
 			}
 			templ_7745c5c3_Err = canon.NumberInput(canon.NumberInputProps{ID: "amount", Label: "Amount", Value: f64(1234.5), HasClear: true,
-				Format: `{"style":"currency","currency":"USD"}`, Description: "Paste \"(12)\" or \"€5\"", Units: "USD"}).Render(ctx, templ_7745c5c3_Buffer)
+				Format: `{"style":"currency","currency":"USD"}`, Description: "Paste \"(12)\" or \"€5\"", Units: "USD",
+				ValueAttrs: []canon.Attr{canon.A("data-bind:amount", "")}}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -201,7 +202,7 @@ func formsPage() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div><p class=\"demo-panel\">qty: <span data-text=\"$qty\"></span> · <button type=\"button\" data-on:click=\"$qty = 7\">Set qty to 7</button></p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div><p class=\"demo-panel\">qty: <span data-text=\"$qty\"></span> · <button type=\"button\" data-on:click=\"$qty = 7\">Set qty to 7</button> · amount: <span data-text=\"JSON.stringify($amount)\"></span></p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

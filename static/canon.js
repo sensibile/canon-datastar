@@ -1526,6 +1526,9 @@ function renderNumber(ctl) {
   const callerError = ctl.dataset.status === 'error';
   if (shown || callerError) field.setAttribute('aria-invalid', 'true');
   else field.removeAttribute('aria-invalid');
+  // A rejected draft also blocks explicit form submission, not just Enter.
+  const validity = shown ? 'Invalid number' : '';
+  if (field.validationMessage !== validity) field.setCustomValidity(validity);
   const fieldEl = ctl.closest('.astryx-field');
   const entry = fieldEl && !ctl.hasAttribute('data-astryx-input-group-item') ? doc.getElementById(`${field.id}-entry`) : null;
   if (entry) {
@@ -1609,10 +1612,9 @@ doc.addEventListener('input', (e) => {
   const s = numberState(ctl);
   s.pending = e.target.value;
   s.kept = false;
-  if (s.rejection !== null && getNumberInputRejection(s.pending, numberRules(ctl)) === null) {
-    s.rejection = null;
-    renderNumber(ctl);
-  }
+  if (s.rejection !== null && getNumberInputRejection(s.pending, numberRules(ctl)) === null) s.rejection = null;
+  // Steppers follow the draft, since stepping starts from it.
+  renderNumber(ctl);
 });
 doc.addEventListener('focusin', (e) => {
   if (!isNumberField(e.target)) return;
@@ -2039,19 +2041,27 @@ doc.addEventListener('keydown', (e) => {
   emitSlider(ctl, sliderConstrained(ctl, index, next, e.key !== 'Home' && e.key !== 'End'), true);
 });
 
-/** Hook a hidden value input so a value set from outside (Datastar, a script) redraws `render`. */
-function hookValue(input, render) {
-  if (Object.hasOwn(input, 'value')) return;
-  Object.defineProperty(input, 'value', {
+/**
+ * Hook a control's property so a value set from outside (Datastar's data-bind, a script)
+ * calls `render`. Such writes fire no event and no mutation, so nothing else would notice.
+ */
+function hookProperty(el, name, render) {
+  if (Object.hasOwn(el, name)) return;
+  let proto = Object.getPrototypeOf(el);
+  while (proto && !Object.hasOwn(proto, name)) proto = Object.getPrototypeOf(proto);
+  const native = proto && Object.getOwnPropertyDescriptor(proto, name);
+  if (!native?.set) return;
+  Object.defineProperty(el, name, {
     configurable: true,
-    get: () => nativeValue.get.call(input),
+    get: () => native.get.call(el),
     set: (v) => {
-      const before = nativeValue.get.call(input);
-      nativeValue.set.call(input, v);
-      if (nativeValue.get.call(input) !== before) render();
+      const before = native.get.call(el);
+      native.set.call(el, v);
+      if (native.get.call(el) !== before) render();
     },
   });
 }
+const hookValue = (input, render) => hookProperty(input, 'value', render);
 function wireSlider(ctl) {
   for (const h of sliderHiddens(ctl)) hookValue(h, () => renderSlider(ctl));
   if (ctl.dataset.format !== undefined || !ctl._canonRendered) {
@@ -2296,8 +2306,14 @@ function scan() {
   checkImages();
   if (isApple) for (const k of doc.querySelectorAll('.astryx-kbd[data-keys]')) fixKbd(k);
   for (const t of doc.querySelectorAll('time.astryx-timestamp-time')) renderTime(t);
-  for (const ta of doc.querySelectorAll('.astryx-text-area-control[data-max-length]')) countTextArea(ta);
-  for (const g of doc.querySelectorAll('.astryx-checkbox-list-group')) syncRequired(g);
+  for (const ta of doc.querySelectorAll('.astryx-text-area-control[data-max-length]')) {
+    hookValue(ta, () => countTextArea(ta));
+    countTextArea(ta);
+  }
+  for (const g of doc.querySelectorAll('.astryx-checkbox-list-group')) {
+    for (const b of g.querySelectorAll('input[type="checkbox"]')) hookProperty(b, 'checked', () => syncRequired(g));
+    syncRequired(g);
+  }
   for (const n of doc.querySelectorAll('.astryx-number-input')) wireNumber(n);
   for (const s of doc.querySelectorAll('.astryx-slider-control')) wireSlider(s);
   for (const f of doc.querySelectorAll('.astryx-file-input')) renderFiles(f);
