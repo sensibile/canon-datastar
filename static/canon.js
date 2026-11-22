@@ -1371,6 +1371,21 @@ doc.addEventListener('change', (e) => {
   const group = e.target instanceof Element ? e.target.closest('.astryx-checkbox-list-group') : null;
   if (group) syncRequired(group);
 });
+/** Put a hidden input back to its wiring-time value; true (and marked) when that changed it. */
+function restoreDefault(h) {
+  if (h._canonDefault === undefined || nativeValue.get.call(h) === h._canonDefault) return false;
+  nativeValue.set.call(h, h._canonDefault);
+  h._canonRestored = true;
+  return true;
+}
+/** Tell data-bind about a restored value. */
+function notify(h) {
+  if (!h._canonRestored) return;
+  h._canonRestored = false;
+  h.dispatchEvent(new Event('input', { bubbles: true }));
+  h.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 // A form reset restores controls without events; resync once the browser is done.
 doc.addEventListener('reset', (e) => {
   const form = e.target;
@@ -1388,14 +1403,16 @@ doc.addEventListener('reset', (e) => {
       const { hidden } = numberParts(ctl);
       if (hidden?.form !== form || hidden._canonDefault === undefined) continue;
       endNumberDraft(ctl);
-      nativeValue.set.call(hidden, hidden._canonDefault);
+      restoreDefault(hidden);
       renderNumber(ctl);
+      notify(hidden);
     }
     for (const ctl of doc.querySelectorAll('.astryx-slider-control')) {
       const hiddens = sliderHiddens(ctl);
       if (hiddens[0]?.form !== form) continue;
-      for (const h of hiddens) if (h._canonDefault !== undefined) nativeValue.set.call(h, h._canonDefault);
+      const changed = hiddens.filter(restoreDefault);
       renderSlider(ctl);
+      for (const h of changed) notify(h);
     }
     for (const box of doc.querySelectorAll('.astryx-file-input')) {
       if (fileNative(box)?.form === form) renderFiles(box, null);
