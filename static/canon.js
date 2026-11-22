@@ -1416,7 +1416,12 @@ doc.addEventListener('reset', (e) => {
       for (const h of changed) notify(h);
     }
     for (const box of doc.querySelectorAll('.astryx-file-input')) {
-      if (fileNative(box)?.form === form) renderFiles(box, null);
+      const input = fileNative(box);
+      if (input?.form !== form) continue;
+      const had = box.hasAttribute('data-has-files');
+      renderFiles(box, null);
+      // data-bind reads files on change only; let it see the emptied selection.
+      if (had && input.files.length === 0) input.dispatchEvent(new Event('change', { bubbles: true }));
     }
   }, 0);
 });
