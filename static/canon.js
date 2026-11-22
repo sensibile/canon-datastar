@@ -1371,6 +1371,19 @@ doc.addEventListener('change', (e) => {
   const group = e.target instanceof Element ? e.target.closest('.astryx-checkbox-list-group') : null;
   if (group) syncRequired(group);
 });
+// A form reset restores boxes and text without events; resync once the browser is done.
+doc.addEventListener('reset', (e) => {
+  const form = e.target;
+  if (!(form instanceof HTMLFormElement)) return;
+  setTimeout(() => {
+    for (const el of form.elements) {
+      if (el instanceof HTMLTextAreaElement && el.matches('.astryx-text-area-control[data-max-length]')) countTextArea(el);
+    }
+    for (const g of doc.querySelectorAll('.astryx-checkbox-list-group')) {
+      if (g.querySelector('input[type="checkbox"]')?.form === form) syncRequired(g);
+    }
+  }, 0);
+});
 
 // RadioList: with nothing checked, focus entering the group lands on the first radio (the
 // last when tabbing backwards), and Tab from a radio leaves the group in one step.
