@@ -1371,7 +1371,7 @@ doc.addEventListener('change', (e) => {
   const group = e.target instanceof Element ? e.target.closest('.astryx-checkbox-list-group') : null;
   if (group) syncRequired(group);
 });
-// A form reset restores boxes and text without events; resync once the browser is done.
+// A form reset restores controls without events; resync once the browser is done.
 doc.addEventListener('reset', (e) => {
   const form = e.target;
   if (!(form instanceof HTMLFormElement)) return;
@@ -1381,6 +1381,24 @@ doc.addEventListener('reset', (e) => {
     }
     for (const g of doc.querySelectorAll('.astryx-checkbox-list-group')) {
       if (g.querySelector('input[type="checkbox"]')?.form === form) syncRequired(g);
+    }
+    // Hidden inputs have no separate default (setting .value rewrites the attribute), so the
+    // values recorded at wiring time are restored by hand.
+    for (const ctl of doc.querySelectorAll('.astryx-number-input')) {
+      const { hidden } = numberParts(ctl);
+      if (hidden?.form !== form || hidden._canonDefault === undefined) continue;
+      endNumberDraft(ctl);
+      nativeValue.set.call(hidden, hidden._canonDefault);
+      renderNumber(ctl);
+    }
+    for (const ctl of doc.querySelectorAll('.astryx-slider-control')) {
+      const hiddens = sliderHiddens(ctl);
+      if (hiddens[0]?.form !== form) continue;
+      for (const h of hiddens) if (h._canonDefault !== undefined) nativeValue.set.call(h, h._canonDefault);
+      renderSlider(ctl);
+    }
+    for (const box of doc.querySelectorAll('.astryx-file-input')) {
+      if (fileNative(box)?.form === form) renderFiles(box, null);
     }
   }, 0);
 });
@@ -1796,6 +1814,7 @@ function wireNumber(ctl) {
     field._canonWheel = true;
     field.addEventListener('wheel', numberWheel, { passive: false });
   }
+  hidden._canonDefault ??= nativeValue.get.call(hidden);
   hookValue(hidden, () => {
     const s = numberState(ctl);
     // A new value from outside replaces a rejected or kept draft.
@@ -2076,7 +2095,10 @@ function hookProperty(el, name, render) {
 }
 const hookValue = (input, render) => hookProperty(input, 'value', render);
 function wireSlider(ctl) {
-  for (const h of sliderHiddens(ctl)) hookValue(h, () => renderSlider(ctl));
+  for (const h of sliderHiddens(ctl)) {
+    h._canonDefault ??= nativeValue.get.call(h);
+    hookValue(h, () => renderSlider(ctl));
+  }
   if (ctl.dataset.format !== undefined || !ctl._canonRendered) {
     ctl._canonRendered = true;
     renderSlider(ctl);
