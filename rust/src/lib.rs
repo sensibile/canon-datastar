@@ -7,7 +7,12 @@
 //! Props structs implement `Default`; enum-like props are strings where "" means the default.
 //! Every component takes `attrs` (extra attributes, e.g. Datastar bindings), rendered in order.
 
+mod avatar;
+mod banner;
 mod button;
+mod collapsible;
+mod container;
+mod content;
 mod dialog;
 mod field;
 mod html;
@@ -16,16 +21,35 @@ mod icons_gen;
 mod inputs;
 mod link;
 mod menu;
+mod metadata;
 mod misc;
 mod popover;
+mod progress;
 mod tabs;
 mod text;
 mod theme;
+mod thumbnail;
+mod timestamp;
 mod toast;
+mod token;
 mod tooltip;
 mod types;
 
+pub use avatar::{
+    AvatarGroupOverflowProps, AvatarGroupProps, AvatarProps, AvatarStatusDotProps, avatar,
+    avatar_group,
+};
+pub use banner::{BannerProps, banner};
 pub use button::{ButtonProps, button, icon_button};
+pub use collapsible::{CollapsibleGroupProps, CollapsibleProps, collapsible, collapsible_group};
+pub use container::{
+    AspectRatioProps, CardProps, CenterProps, GridAuto, GridProps, GridSpanProps, SectionProps,
+    aspect_ratio, card, center, grid, grid_span, section,
+};
+pub use content::{
+    BlockquoteProps, CodeProps, EmptyStateProps, KbdProps, SkeletonProps, StatusDotProps,
+    blockquote, code, empty_state, kbd, skeleton, status_dot,
+};
 pub use dialog::{DialogHeaderProps, DialogProps, dialog, dialog_header};
 pub use field::{FieldLabelProps, FieldProps, field, field_label, field_status};
 pub use icon::{IconProps, icon, icon_names};
@@ -37,15 +61,20 @@ pub use menu::{
     DropdownMenuGroupProps, DropdownMenuItemProps, DropdownMenuProps, dropdown_menu,
     dropdown_menu_divider, dropdown_menu_group, dropdown_menu_item,
 };
+pub use metadata::{MetadataListItem, MetadataListProps, metadata_list};
 pub use misc::{
     BadgeProps, DividerProps, SpinnerProps, StackProps, VisuallyHiddenProps, badge, divider,
     hstack, spinner, stack, visually_hidden, vstack,
 };
 pub use popover::{PopoverProps, popover};
+pub use progress::{ProgressBarMark, ProgressBarProps, progress_bar};
 pub use tabs::{TabListProps, TabPanelProps, TabProps, tab_list, tab_panel};
 pub use text::{HeadingProps, TextProps, heading, text};
 pub use theme::{THEMES, ThemeMode, ThemeProps, theme};
+pub use thumbnail::{ThumbnailProps, thumbnail};
+pub use timestamp::{TimestampProps, TimestampTooltipEntry, timestamp};
 pub use toast::{ToastProps, ToastViewportProps, toast, toast_viewport};
+pub use token::{TokenProps, token};
 pub use tooltip::{InfoTipProps, TooltipProps, info_tip, tooltip};
 pub use types::FieldStatus;
 

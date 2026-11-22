@@ -12,6 +12,16 @@
 @import './components/badge.css';
 @import './components/spinner.css';
 @import './components/layout.css';
+@import './components/container.css';
+@import './components/content.css';
+@import './components/progress-bar.css';
+@import './components/token.css';
+@import './components/avatar.css';
+@import './components/banner.css';
+@import './components/collapsible.css';
+@import './components/metadata-list.css';
+@import './components/thumbnail.css';
+@import './components/timestamp.css';
 @import './components/field.css';
 @import './components/text-input.css';
 @import './components/checkbox.css';

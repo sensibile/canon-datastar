@@ -1,0 +1,78 @@
+/* Collapsible and CollapsibleGroup. Port of Astryx packages/core/src/Collapsible (MIT, Meta
+ * Platforms, Inc.).
+ * Markup: <div class="astryx-collapsible" [data-divided] [data-density]>
+ *   <button class="astryx-collapsible-trigger" data-chevron-position aria-expanded [data-disabled]>
+ *     [chevron] <span class="astryx-collapsible-label">…</span> [chevron]</button>
+ *   <div class="astryx-collapsible-content" [hidden]><div>…</div></div></div>
+ * Chevron: <span class="astryx-collapsible-chevron">icon</span>, turned by aria-expanded.
+ * Group: <div class="astryx-collapsible-group" data-type [data-dividers] [data-density]>; without
+ * dividers it adds no box. */
+@layer astryx-base {
+  .astryx-collapsible-group { display: contents; }
+  .astryx-collapsible-group[data-dividers] { display: flex; flex-direction: column; }
+
+  .astryx-collapsible { width: 100%; }
+  .astryx-collapsible[data-divided] { border-block-start: var(--border-width) solid var(--color-border); }
+  .astryx-collapsible[data-divided]:first-child { border-block-start-width: 0; }
+  .astryx-collapsible-trigger {
+    appearance: none;
+    border: none;
+    background: none;
+    margin: 0;
+    padding-inline: 0;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    cursor: pointer;
+    font-family: var(--font-family-body);
+    font-size: var(--text-large-size);
+    line-height: var(--text-large-leading);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    text-align: start;
+    padding-block: 0;
+  }
+  .astryx-collapsible-trigger:not([data-disabled]):active { background-color: var(--color-overlay-pressed); }
+  .astryx-collapsible-trigger:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: 2px;
+  }
+  .astryx-collapsible-trigger[data-disabled] { cursor: default; opacity: 0.5; }
+  .astryx-collapsible[data-density='compact'] > .astryx-collapsible-trigger { padding-block: var(--spacing-1); }
+  .astryx-collapsible[data-density='balanced'] > .astryx-collapsible-trigger { padding-block: var(--spacing-2); }
+  .astryx-collapsible[data-density='spacious'] > .astryx-collapsible-trigger { padding-block: var(--spacing-3); }
+  .astryx-collapsible-label { text-box-edge: cap alphabetic; text-box-trim: trim-both; flex-grow: 1; }
+  .astryx-collapsible-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: var(--text-large-size);
+    height: var(--text-large-size);
+    transition: transform var(--duration-fast) var(--ease-standard);
+  }
+  [aria-expanded='true'] > .astryx-collapsible-chevron { transform: rotate(180deg); }
+  [data-chevron-position='start'] > .astryx-collapsible-chevron { margin-inline-end: var(--spacing-2); }
+  [data-chevron-position='start'][aria-expanded='true'] > .astryx-collapsible-chevron { transform: rotate(90deg); }
+  [dir='rtl'] [data-chevron-position='start'] > .astryx-collapsible-chevron { transform: scaleX(-1); }
+  [dir='rtl'] [data-chevron-position='start'][aria-expanded='true'] > .astryx-collapsible-chevron {
+    transform: scaleX(-1) rotate(90deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-collapsible-chevron { transition-duration: 0s; }
+  }
+  .astryx-collapsible-content {
+    padding-block-start: var(--spacing-1);
+    font-family: var(--font-family-body);
+    font-size: var(--text-body-size);
+    font-weight: var(--text-body-weight);
+    line-height: var(--text-body-leading);
+    color: var(--color-text-primary);
+  }
+  .astryx-collapsible[data-density='compact'] > .astryx-collapsible-content { padding-block-end: var(--spacing-1); }
+  .astryx-collapsible[data-density='balanced'] > .astryx-collapsible-content { padding-block-end: var(--spacing-2); }
+  .astryx-collapsible[data-density='spacious'] > .astryx-collapsible-content { padding-block-end: var(--spacing-3); }
+  .astryx-collapsible-content[hidden] { display: none; }
+}

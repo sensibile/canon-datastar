@@ -31,6 +31,23 @@ func main() {
 			log.Print(err)
 		}
 	})
+	mux.HandleFunc("GET /content", func(w http.ResponseWriter, r *http.Request) {
+		theme, mode := themeFromQuery(r)
+		if err := contentIndex(theme, mode).Render(r.Context(), w); err != nil {
+			log.Print(err)
+		}
+	})
+	// ProgressBar over SSE: patch the bar as the "upload" advances; Datastar morphs it in place.
+	mux.HandleFunc("POST /demo/progress", func(w http.ResponseWriter, r *http.Request) {
+		sse := datastar.NewSSE(w, r)
+		for v := 0.0; v <= 100; v += 10 {
+			if err := sse.PatchElementTempl(progressBar(v)); err != nil {
+				log.Print(err)
+				return
+			}
+			time.Sleep(250 * time.Millisecond)
+		}
+	})
 	mux.HandleFunc("GET /overlays", func(w http.ResponseWriter, r *http.Request) {
 		theme, mode := themeFromQuery(r)
 		if err := overlaysIndex(theme, mode).Render(r.Context(), w); err != nil {

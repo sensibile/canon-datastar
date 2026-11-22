@@ -1,0 +1,109 @@
+/* Thumbnail. Port of Astryx packages/core/src/Thumbnail (MIT, Meta Platforms, Inc.).
+ * Markup: <div class="astryx-thumbnail" role="group" aria-label [data-disabled]>
+ *   <div class="astryx-thumbnail-frame" [data-interactive] [data-reveal]>
+ *     [<button class="astryx-thumbnail-open">]image | skeleton | placeholder[</button>]
+ *     [<div class="astryx-thumbnail-inset-border">] [<div class="astryx-thumbnail-upload-overlay">]
+ *     [<div class="astryx-thumbnail-remove-slot"><button class="astryx-button astryx-thumbnail-remove">]
+ * The placeholder is rendered hidden next to an image so canon.js can show it if the image fails. */
+@layer astryx-base {
+  .astryx-thumbnail {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    width: 64px;
+    flex-shrink: 0;
+    isolation: isolate;
+  }
+  .astryx-thumbnail[data-disabled] { opacity: 0.5; pointer-events: none; }
+  .astryx-thumbnail-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: var(--radius-element);
+    overflow: hidden;
+    background-color: var(--color-neutral);
+  }
+  .astryx-thumbnail-frame:focus-within:has(:focus-visible) {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: 2px;
+  }
+  .astryx-thumbnail-image { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .astryx-thumbnail-inset-border {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    pointer-events: none;
+  }
+  .astryx-thumbnail-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: var(--color-icon-secondary);
+  }
+  :is(.astryx-thumbnail-image, .astryx-thumbnail-inset-border, .astryx-thumbnail-placeholder)[hidden] { display: none; }
+  .astryx-thumbnail-open {
+    all: unset;
+    cursor: pointer;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius-element);
+    overflow: hidden;
+  }
+  .astryx-thumbnail-open[aria-disabled='true'] { cursor: default; }
+  .astryx-thumbnail-frame[data-interactive]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-color: var(--_press-overlay, transparent);
+    transition: background-color var(--duration-fast) var(--ease-standard);
+  }
+  @media (hover: hover) {
+    .astryx-thumbnail-frame[data-interactive]:hover { --_press-overlay: var(--color-overlay-hover); }
+  }
+  .astryx-thumbnail-frame[data-interactive]:active { --_press-overlay: var(--color-overlay-pressed); }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-thumbnail-frame[data-interactive]::after { transition-duration: 0s; }
+  }
+  .astryx-thumbnail-upload-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-overlay);
+    border-radius: inherit;
+    z-index: 1;
+    line-height: 0;
+  }
+  .astryx-thumbnail-remove-slot {
+    position: absolute;
+    top: var(--spacing-1);
+    inset-inline-end: var(--spacing-1);
+    z-index: 1;
+    line-height: 0;
+  }
+  /* Hover reveal keeps the button in the layout and tab order. */
+  [data-reveal] > .astryx-thumbnail-remove-slot { opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
+  [data-reveal]:is(:hover, :focus-within) > .astryx-thumbnail-remove-slot { opacity: 1; }
+  @media (hover: none) {
+    [data-reveal] > .astryx-thumbnail-remove-slot { opacity: 1; }
+  }
+  .astryx-thumbnail-remove-slot .astryx-thumbnail-remove {
+    --_button-radius: calc(var(--radius-element) - var(--spacing-1));
+    position: relative;
+    height: 20px;
+    min-width: 20px;
+    background-color: var(--color-overlay);
+    color: var(--color-on-dark);
+  }
+  .astryx-thumbnail-remove-slot .astryx-thumbnail-remove::after { content: ''; position: absolute; inset: 0; }
+  @media (pointer: coarse) {
+    .astryx-thumbnail-remove-slot .astryx-thumbnail-remove::after { inset: -2px; }
+  }
+}
