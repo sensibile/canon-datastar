@@ -1391,6 +1391,7 @@ doc.addEventListener('reset', (e) => {
   const form = e.target;
   if (!(form instanceof HTMLFormElement)) return;
   setTimeout(() => {
+    if (e.defaultPrevented) return; // a listener cancelled the reset
     for (const el of form.elements) {
       if (el instanceof HTMLTextAreaElement && el.matches('.astryx-text-area-control[data-max-length]')) countTextArea(el);
     }
