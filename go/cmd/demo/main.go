@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -34,6 +35,24 @@ func main() {
 	mux.HandleFunc("GET /content", func(w http.ResponseWriter, r *http.Request) {
 		theme, mode := themeFromQuery(r)
 		if err := contentIndex(theme, mode).Render(r.Context(), w); err != nil {
+			log.Print(err)
+		}
+	})
+	mux.HandleFunc("GET /forms", func(w http.ResponseWriter, r *http.Request) {
+		theme, mode := themeFromQuery(r)
+		if err := formsIndex(theme, mode).Render(r.Context(), w); err != nil {
+			log.Print(err)
+		}
+	})
+	// Forms: echo the signals the page sent, to show what the bound controls hold.
+	mux.HandleFunc("POST /demo/forms", func(w http.ResponseWriter, r *http.Request) {
+		var signals map[string]any
+		if err := datastar.ReadSignals(r, &signals); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		out, _ := json.MarshalIndent(signals, "", "  ")
+		if err := datastar.NewSSE(w, r).PatchElementTempl(submitted(string(out))); err != nil {
 			log.Print(err)
 		}
 	})

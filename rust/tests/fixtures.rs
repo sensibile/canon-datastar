@@ -2047,3 +2047,552 @@ fn timestamp_fixtures() {
         ],
     );
 }
+
+fn a(n: &str, v: &str) -> Attr {
+    attr(n, v)
+}
+
+#[test]
+fn text_area_fixtures() {
+    check(
+        "text-area",
+        vec![
+            (
+                "default",
+                text_area(&TextAreaProps {
+                    label: s("Bio"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "full",
+                text_area(&TextAreaProps {
+                    id: s("bio"),
+                    label: s("Bio"),
+                    value: s("\nHi \"you\""),
+                    description: s("Short"),
+                    is_required: true,
+                    start_icon: s("info"),
+                    status: Some(FieldStatus::new("warning", "Long")),
+                    size: s("lg"),
+                    is_loading: true,
+                    placeholder: s("Tell us"),
+                    rows: 5,
+                    max_length: 4,
+                    html_max_length: 2000,
+                    has_auto_focus: true,
+                    name: s("bio"),
+                    has_spell_check: Some(false),
+                    class: s("c"),
+                    control_class: s("cc"),
+                    attrs: vec![a("data-x", "1")],
+                    input_attrs: vec![a("data-bind:bio", "")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled-messageless",
+                text_area(&TextAreaProps {
+                    id: s("n"),
+                    label: s("Notes"),
+                    is_disabled: true,
+                    name: s("n"),
+                    status: Some(FieldStatus::new("error", "")),
+                    max_length: 1000,
+                    value: s("abc"),
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn item_fixtures() {
+    check(
+        "item",
+        vec![
+            (
+                "default",
+                item(&ItemProps {
+                    label: s("Row"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "button",
+                item(&ItemProps {
+                    label: s("Row"),
+                    description: s("More"),
+                    action: Some(vec![a("data-on:click", "$n++")]),
+                    start_content: Some(child()),
+                    end_content: Some(child()),
+                    align: s("first-line"),
+                    density: s("compact"),
+                    is_selected: true,
+                    label_lines: 2,
+                    description_lines: 1,
+                    class: s("x"),
+                    attrs: vec![a("data-y", "1")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "link-disabled",
+                item(&ItemProps {
+                    as_: s("li"),
+                    label: s("Docs"),
+                    href: s("/docs"),
+                    target: s("_blank"),
+                    is_disabled: true,
+                    layout: s("inline"),
+                    description: s("inline"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "link",
+                item(&ItemProps {
+                    label: s("Docs"),
+                    href: s("/docs"),
+                    target: s("_blank"),
+                    is_highlighted: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "role",
+                item(&ItemProps {
+                    label: s("Opt"),
+                    role: s("option"),
+                    is_selected: true,
+                    is_disabled: true,
+                    label_content: Some(child()),
+                    density: s("spacious"),
+                    align: s("start"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled-button",
+                item(&ItemProps {
+                    label: s("Row"),
+                    action: Some(vec![a("data-on:click", "$n++"), a("data-x", "1")]),
+                    is_disabled: true,
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn checkbox_list_fixtures() {
+    let cb = |label: &str| CheckboxListItem {
+        label: s(label),
+        ..Default::default()
+    };
+    check(
+        "checkbox-list",
+        vec![
+            (
+                "default",
+                checkbox_list(&CheckboxListProps {
+                    label: s("Toppings"),
+                    items: vec![cb("Cheese"), cb("Ham")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "full",
+                checkbox_list(&CheckboxListProps {
+                    id: s("t"),
+                    label: s("Toppings"),
+                    description: s("Pick"),
+                    is_required: true,
+                    status: Some(FieldStatus::new("error", "Pick one")),
+                    name: s("top"),
+                    density: s("compact"),
+                    has_dividers: true,
+                    width: s("300px"),
+                    class: s("c"),
+                    attrs: vec![a("data-x", "1")],
+                    input_attrs: vec![a("data-bind:top", "")],
+                    items: vec![
+                        CheckboxListItem {
+                            value: s("olives"),
+                            is_disabled: true,
+                            ..cb("Olives")
+                        },
+                        CheckboxListItem {
+                            value: s("cheese"),
+                            description: s("Mozzarella"),
+                            end_content: Some(child()),
+                            align: s("start"),
+                            class: s("i"),
+                            attrs: vec![a("data-r", "1")],
+                            input_attrs: vec![a("data-i", "1")],
+                            ..cb("Cheese")
+                        },
+                        CheckboxListItem {
+                            label_content: Some(child()),
+                            value: s("rich"),
+                            is_indeterminate: true,
+                            is_loading: true,
+                            id: s("rich"),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "read-only-checked",
+                checkbox_list(&CheckboxListProps {
+                    label: s("Read"),
+                    is_read_only: true,
+                    is_required: true,
+                    is_disabled: true,
+                    items: vec![CheckboxListItem {
+                        is_checked: true,
+                        aria_label: s("Alpha"),
+                        ..cb("A")
+                    }],
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn radio_list_fixtures() {
+    let r = |label: &str, value: &str| RadioListItem {
+        label: s(label),
+        value: s(value),
+        ..Default::default()
+    };
+    check(
+        "radio-list",
+        vec![
+            (
+                "default",
+                radio_list(&RadioListProps {
+                    label: s("Plan"),
+                    items: vec![r("Free", "free"), r("Pro", "pro")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "full",
+                radio_list(&RadioListProps {
+                    id: s("p"),
+                    label: s("Plan"),
+                    description: s("Billing"),
+                    value: s("pro"),
+                    orientation: s("horizontal"),
+                    name: s("plan"),
+                    is_required: true,
+                    status: Some(FieldStatus::new("error", "Pick")),
+                    size: s("sm"),
+                    width: s("20rem"),
+                    class: s("c"),
+                    container_class: s("cc"),
+                    attrs: vec![a("data-x", "1")],
+                    input_attrs: vec![a("data-bind:plan", "")],
+                    items: vec![
+                        RadioListItem {
+                            description: s("3 projects"),
+                            start_content: Some(child()),
+                            end_content: Some(child()),
+                            class: s("i"),
+                            attrs: vec![a("data-r", "1")],
+                            input_attrs: vec![a("data-i", "1")],
+                            ..r("Free", "free")
+                        },
+                        RadioListItem {
+                            aria_label: s("Pro plan"),
+                            id: s("pro"),
+                            ..r("Pro", "pro")
+                        },
+                        RadioListItem {
+                            is_disabled: true,
+                            ..r("Enterprise", "ent")
+                        },
+                    ],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled",
+                radio_list(&RadioListProps {
+                    label: s("Off"),
+                    is_disabled: true,
+                    is_required: true,
+                    is_optional: true,
+                    items: vec![r("A", "a")],
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn input_group_fixtures() {
+    let price = InputGroupProps {
+        id: s("price"),
+        label: s("Price"),
+        description: s("Per seat"),
+        size: s("lg"),
+        status: Some(FieldStatus::new("error", "Too low")),
+        is_required: true,
+        class: s("c"),
+        attrs: vec![a("data-x", "1")],
+        ..Default::default()
+    };
+    let off = InputGroupProps {
+        label: s("Off"),
+        is_disabled: true,
+        ..Default::default()
+    };
+    let members = maud::html! {
+        (input_group_text("$"))
+        (number_input(&NumberInputProps { id: s("amt"), label: s("Amount"), value: Some(5.0), group: price.member(), units: s("USD"), ..Default::default() }))
+        (text_input(&TextInputProps { id: s("note"), label: s("Note"), group: price.member(), status: Some(FieldStatus::new("error", "")), ..Default::default() }))
+        (button(&ButtonProps { label: s("Go"), attrs: vec![input_group_item()], ..Default::default() }))
+    };
+    check(
+        "input-group",
+        vec![
+            (
+                "default",
+                input_group(
+                    &InputGroupProps {
+                        label: s("Site"),
+                        ..Default::default()
+                    },
+                    child(),
+                ),
+            ),
+            ("members", input_group(&price, members)),
+            (
+                "disabled",
+                input_group(
+                    &off,
+                    text_input(&TextInputProps {
+                        label: s("Inner"),
+                        group: off.member(),
+                        ..Default::default()
+                    }),
+                ),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn number_input_fixtures() {
+    check(
+        "number-input",
+        vec![
+            (
+                "default",
+                number_input(&NumberInputProps {
+                    label: s("Quantity"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "full",
+                number_input(&NumberInputProps {
+                    id: s("qty"),
+                    label: s("Quantity"),
+                    value: Some(1234.5),
+                    description: s("How many"),
+                    is_required: true,
+                    start_icon: s("search"),
+                    label_icon: s("info"),
+                    status: Some(FieldStatus::new("warning", "High")),
+                    size: s("lg"),
+                    placeholder: s("0"),
+                    width: s("200px"),
+                    has_auto_focus: true,
+                    name: s("qty"),
+                    min: Some(-5.0),
+                    max: Some(1e6),
+                    step: 0.5,
+                    format: s(r#"{"style":"currency","currency":"USD"}"#),
+                    is_wheel_disabled: true,
+                    has_number_steppers: true,
+                    units: s("pcs"),
+                    is_integer_only: true,
+                    has_clear: true,
+                    locale: s("de-DE"),
+                    class: s("c"),
+                    control_class: s("cc"),
+                    attrs: vec![a("data-x", "1")],
+                    input_attrs: vec![a("data-i", "1")],
+                    value_attrs: vec![a("data-bind:qty", "")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "error-message",
+                number_input(&NumberInputProps {
+                    label: s("Qty"),
+                    status: Some(FieldStatus::new("error", "Bad")),
+                    status_variant: s("detached"),
+                    has_clear: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled",
+                number_input(&NumberInputProps {
+                    label: s("Qty"),
+                    value: Some(0.0),
+                    is_disabled: true,
+                    name: s("q"),
+                    has_clear: true,
+                    has_number_steppers: true,
+                    is_read_only: true,
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn slider_fixtures() {
+    let mark = |v: f64, l: &str| SliderMark {
+        value: v,
+        label: s(l),
+    };
+    check(
+        "slider",
+        vec![
+            (
+                "default",
+                slider(&SliderProps {
+                    label: s("Volume"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "full",
+                slider(&SliderProps {
+                    id: s("vol"),
+                    label: s("Volume"),
+                    values: vec![150.0],
+                    description: s("Loud"),
+                    is_required: true,
+                    status: Some(FieldStatus::new("error", "Too loud")),
+                    width: s("300px"),
+                    min: Some(-10.0),
+                    max: Some(120.0),
+                    step: 2.5,
+                    format: s(r#"{"style":"percent"}"#),
+                    locale: s("ko-KR"),
+                    name: s("v"),
+                    form: s("f"),
+                    marks: vec![mark(-10.0, "Low"), mark(55.0, ""), mark(120.0, "High")],
+                    class: s("c"),
+                    container_class: s("cc"),
+                    attrs: vec![a("data-x", "1")],
+                    value_attrs: vec![a("data-bind:vol", "")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "range",
+                slider(&SliderProps {
+                    label: s("Price"),
+                    values: vec![20.0, 80.0],
+                    min_steps_between_thumbs: 5,
+                    value_display: s("text"),
+                    orientation: s("vertical"),
+                    marks: vec![mark(50.0, "Mid")],
+                    is_disabled: true,
+                    name: s("p"),
+                    attrs: vec![a("data-x", "1")],
+                    value_attrs: vec![a("data-bind:lo", "")],
+                    end_value_attrs: vec![a("data-bind:hi", "")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "none",
+                slider(&SliderProps {
+                    label: s("Quiet"),
+                    values: vec![1.25],
+                    min: Some(1.0),
+                    max: Some(1.0),
+                    value_display: s("none"),
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn file_input_fixtures() {
+    check(
+        "file-input",
+        vec![
+            (
+                "default",
+                file_input(&FileInputProps {
+                    label: s("Avatar"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "full",
+                file_input(&FileInputProps {
+                    id: s("docs"),
+                    label: s("Documents"),
+                    accept: s(".pdf,image/*"),
+                    is_multiple: true,
+                    max_size: 1048576,
+                    max_files: 3,
+                    is_required: true,
+                    description: s("PDFs"),
+                    placeholder: s("Pick"),
+                    mode: s("dropzone"),
+                    width: s("400px"),
+                    name: s("docs"),
+                    form: s("f"),
+                    class: s("c"),
+                    control_class: s("cc"),
+                    attrs: vec![a("data-x", "1")],
+                    input_attrs: vec![a("data-bind:docs", "")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "status",
+                file_input(&FileInputProps {
+                    label: s("Avatar"),
+                    status: Some(FieldStatus::new("success", "Uploaded")),
+                    is_loading: true,
+                    status_variant: s("detached"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled",
+                file_input(&FileInputProps {
+                    label: s("Avatar"),
+                    is_disabled: true,
+                    name: s("a"),
+                    form: s("f"),
+                    max_files: 2,
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}

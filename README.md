@@ -14,7 +14,8 @@ Datastar attributes and signals in the browser, and SSE where the server drives 
 | Path | What |
 | --- | --- |
 | `css/` | Shared stylesheets: `astryx.css` (reset + tokens + theme scope), `themes/<name>.css` |
-| `static/canon.js` | Overlay behaviour: positioning, menu and tab keyboard, tooltips, toasts, `window.canon` |
+| `static/canon.js` | Client behaviour: overlays, content and form controls, `window.canon` |
+| `static/number-parser.js` | NumberInput's locale number parser (imported by `canon.js`; serve both) |
 | `static/datastar.js` | Datastar client v1.0.5 (MIT, Star Federation), vendored for convenience |
 | `go/canon` | Go package: templ components |
 | `rust/` | Rust crate `canon-datastar`: maud components |
@@ -33,7 +34,8 @@ Link the base stylesheet, every theme you use, `canon.js` and then Datastar:
 <script type="module" src="/canon/static/datastar.js"></script>
 ```
 
-`canon.js` goes first so Datastar expressions can call `canon.*`. Pages without overlays don't need it.
+`canon.js` goes first so Datastar expressions can call `canon.*`. It imports `number-parser.js` from
+the same folder. Pages without overlays, interactive content or form controls don't need it.
 
 Themes: `neutral`, `butter`, `chocolate`, `matcha`, `stone`, `gothic`, `y2k`. Each theme file
 brings its fonts. Put `data-astryx-theme="<name>"` (and `data-theme="light|dark"`, or nothing to
@@ -139,6 +141,33 @@ server stays in charge of the first render:
   the details tooltip. In Rust the value is Unix milliseconds (`value_ms`).
 - `ProgressBar`: patch it from the server to move it (the demo streams an upload over SSE).
 
+### Forms
+
+Each control renders its first state on the server; `canon.js` keeps it current as the user works.
+Bind the value with `data-bind` where the comment on each prop says:
+
+- `TextArea`: `MaxLength` is a soft limit with a counter (emoji count as one character) and
+  announcements near and past the limit; bind with `InputAttrs`.
+- `NumberInput`: typing is a draft that commits on blur or Enter; pasted local formats ("1,234.5",
+  "(12)", "€5") are read back, out-of-range numbers clamp and unreadable text shows "Invalid number".
+  Arrow keys, the wheel (while focused) and the steppers step on a grid anchored at `Min`. The
+  committed number lives in a hidden input: bind it with `ValueAttrs`. `Format` takes JSON
+  `Intl.NumberFormat` options for the unfocused display.
+- `Slider`: one value or a range (`Values` with two entries), dragged, clicked or stepped with the
+  keyboard. Values live in hidden inputs (`ValueAttrs`, `EndValueAttrs`); `input` fires while moving
+  and `change` when a move ends. The value tip is drawn in place rather than as a popover layer.
+- `CheckboxList` and `RadioList` rows are `Item`s: a click anywhere on the row toggles it. Bind
+  every box with `InputAttrs` (the list's) or one with the item's `InputAttrs`. A required
+  CheckboxList keeps `required` on the first enabled box while none is checked. In a RadioList, Tab
+  enters on the checked radio and leaves the group in one step.
+- `InputGroup` joins `InputGroupText`, a `TextInput` or `NumberInput` given `Group: p.Member()`, and
+  buttons given the `InputGroupItem` attribute into one row under one label.
+- `FileInput` (compact row or `Mode: "dropzone"`): files are checked against `Accept`, `MaxSize`
+  and `MaxFiles` before Datastar reads them, rejections show as an error status, and the native
+  input keeps only the accepted files, so forms and `data-bind` see what the field shows.
+- `Item` is the row primitive: a button (`Action`), a link (`Href`) or a row that forwards clicks to
+  a control inside it.
+
 Give each overlay an `ID` when a page has more than one of a kind; defaults are derived from the
 content (`tooltip-<slug>`) or fixed (`popover`, `menu`).
 
@@ -151,7 +180,10 @@ content (`tooltip-<slug>`) or fixed (`popover`, `menu`).
 - Display: `Avatar` (with `AvatarStatusDotProps`), `AvatarGroup`, `Token`, `Banner`, `Blockquote`,
   `Code`, `Kbd`, `EmptyState`, `Skeleton`, `StatusDot`, `ProgressBar`, `MetadataList`, `Thumbnail`,
   `Timestamp`
-- Form: `Field`, `FieldLabel`, `FieldStatusMessage` / `field_status`, `TextInput`, `CheckboxInput`, `Switch`
+- Form: `Field`, `FieldLabel`, `FieldStatusMessage` / `field_status`, `TextInput`, `TextArea`,
+  `NumberInput`, `InputGroup`, `InputGroupText`, `CheckboxInput`, `CheckboxList`, `Switch`, `RadioList`,
+  `Slider`, `FileInput`
+- List: `Item`
 - Overlay: `Tooltip`, `InfoTip`, `Popover`, `Dialog`, `DialogHeader`, `DropdownMenu`,
   `DropdownMenuItem`, `DropdownMenuGroup`, `DropdownMenuDivider`, `TabList` (with `TabProps`),
   `TabPanel`, `Toast`, `ToastViewport`
@@ -167,7 +199,10 @@ popovers (the browser's rule for the top layer); DropdownMenu items are composed
 Not ported yet: `TextInput` clear button, `disabledMessage`, `labelTooltip`, custom (non built-in)
 icons, Button tooltips, touch long-press and bottom-sheet presentation, menu submenus and
 checkbox/radio items, tab overflow arrows, toast swipe, Collapsible height animation, the
-Timestamp hover card with copy buttons, emoji initials in Avatar. The remaining Astryx categories come next.
+Timestamp hover card with copy buttons, emoji initials in Avatar, `changeAction` on form controls,
+function-valued `formatValue` (use the `Format` JSON options), the Slider touch controller. Selector,
+MultiSelector, Typeahead, Tokenizer and the date and time inputs come next, then the remaining
+Astryx categories.
 
 ## Develop
 

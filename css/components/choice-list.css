@@ -1,0 +1,146 @@
+/* CheckboxList, RadioList and the radio indicator. Port of Astryx packages/core/src/CheckboxList,
+ * RadioList, Indicator (MIT, Meta Platforms, Inc.). The rows are Items; the indicators follow the
+ * native inputs (:checked), so Datastar's data-bind on the inputs drives them.
+ * CheckboxList: <div class="astryx-field astryx-checkbox-list"> label
+ *   <div role="group" class="astryx-checkbox-list-group" [data-required]><ul class="astryx-list" data-density [data-dividers]>
+ *     <li class="astryx-item astryx-checkbox-list-item"><span class="astryx-item-start"><span class="astryx-checkbox-control">input + indicator
+ * RadioList: <div role="radiogroup" class="astryx-radio-list" data-orientation data-size>
+ *   <div class="astryx-item astryx-radio-list-item"><span class="astryx-item-start"><span class="astryx-radio-control">input + indicator */
+@layer astryx-base {
+  .astryx-list {
+    margin: 0;
+    padding-inline-start: 0;
+    list-style-type: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-0-5);
+    overflow-inline: clip;
+  }
+  .astryx-list[data-dividers] { row-gap: 0; }
+
+  .astryx-checkbox-list-item:has(input:checked:not(:disabled, [aria-readonly])) { background-color: var(--color-accent-muted); }
+  .astryx-list[data-dividers] > .astryx-checkbox-list-item {
+    border-radius: 0;
+    border-block-end: var(--border-width) solid var(--color-border);
+  }
+  .astryx-list[data-dividers] > .astryx-checkbox-list-item:last-child { border-block-end-width: 0; }
+  /* The indicator, not the row, shows focus. */
+  .astryx-item.astryx-checkbox-list-item:has(:focus-visible),
+  .astryx-item.astryx-radio-list-item:has(:focus-visible) { outline: none; }
+  .astryx-checkbox-list-item .astryx-checkbox-control > input:is([aria-readonly], [aria-busy]) { cursor: default; }
+  @media (hover: hover) {
+    .astryx-checkbox-list-item:not([data-disabled]):hover :not(:checked, :indeterminate) + .astryx-checkbox-indicator {
+      border-color: color-mix(in srgb, var(--color-border-emphasized), var(--color-tint-hover) 20%);
+      background-color: color-mix(in srgb, var(--color-background-surface), var(--color-tint-hover) 5%);
+    }
+    .astryx-checkbox-list-item:not([data-disabled]):hover :is(:checked, :indeterminate) + .astryx-checkbox-indicator {
+      border-color: color-mix(in srgb, var(--color-accent), var(--color-tint-hover) 15%);
+      background-color: color-mix(in srgb, var(--color-accent), var(--color-tint-hover) 15%);
+    }
+  }
+  .astryx-checkbox-list-item[data-disabled] .astryx-checkbox-indicator { opacity: 0.5; border-color: var(--color-border); }
+  .astryx-checkbox-list-item[data-disabled] :not(:checked, :indeterminate) + .astryx-checkbox-indicator { background-color: var(--color-background-muted); }
+
+  /* RadioList */
+  .astryx-radio-list { display: flex; }
+  .astryx-radio-list[data-orientation='vertical'] { flex-direction: column; gap: var(--spacing-2); }
+  .astryx-radio-list[data-orientation='horizontal'] { flex-direction: row; gap: var(--spacing-5); }
+  .astryx-item.astryx-radio-list-item[data-density] {
+    padding: 0;
+    border-radius: 0;
+    min-width: 0;
+    background-color: transparent;
+  }
+  .astryx-item.astryx-radio-list-item[data-density]:hover { background-color: transparent; background-image: none; }
+  .astryx-radio-control {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    isolation: isolate;
+  }
+  .astryx-radio-control > input {
+    position: absolute;
+    top: 50%;
+    inset-inline-start: 50%;
+    translate: -50% -50%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+  }
+  [dir='rtl'] .astryx-radio-control > input { translate: 50% -50%; }
+  .astryx-radio-control > input:is(:disabled, [aria-disabled]) { cursor: default; }
+  @media (pointer: coarse) {
+    .astryx-radio-control > input { min-inline-size: 24px; min-block-size: 24px; }
+  }
+  .astryx-radio-control > [data-size='sm'] { width: 20px; height: 20px; }
+  .astryx-radio-control > [data-size='md'] { width: 24px; height: 24px; }
+  .astryx-radio-control:has(input:focus-visible) .astryx-radio-indicator {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: var(--focus-outline-offset);
+  }
+  .astryx-radio-list-item:not([data-disabled]):active .astryx-radio-indicator::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    background: var(--color-overlay-pressed);
+  }
+
+  .astryx-radio-indicator {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: var(--border-width) solid var(--color-border-emphasized);
+    border-radius: 50%;
+    background-color: var(--color-background-surface);
+    transition-property: background-color, border-color;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-radio-indicator { transition-duration: 0s; }
+  }
+  :checked + .astryx-radio-indicator { border-color: var(--color-accent); background-color: var(--color-accent); }
+  @media (hover: hover) {
+    .astryx-radio-list-item:not([data-disabled]):hover :not(:checked) + .astryx-radio-indicator {
+      border-color: color-mix(in srgb, var(--color-border-emphasized), var(--color-tint-hover) 20%);
+      background-color: color-mix(in srgb, var(--color-background-surface), var(--color-tint-hover) 5%);
+    }
+    .astryx-radio-list-item:not([data-disabled]):hover :checked + .astryx-radio-indicator {
+      border-color: color-mix(in srgb, var(--color-accent), var(--color-tint-hover) 15%);
+      background-color: color-mix(in srgb, var(--color-accent), var(--color-tint-hover) 15%);
+    }
+  }
+  .astryx-radio-list-item[data-disabled] .astryx-radio-indicator { opacity: 0.5; border-color: var(--color-border); }
+  .astryx-radio-list-item[data-disabled] :not(:checked) + .astryx-radio-indicator { background-color: var(--color-background-muted); }
+  .astryx-radio-indicator-dot { display: none; border-radius: 50%; background-color: var(--color-on-accent); }
+  :checked + .astryx-radio-indicator > .astryx-radio-indicator-dot { display: block; }
+  .astryx-radio-indicator[data-size='sm'] > .astryx-radio-indicator-dot {
+    width: calc((100% + 2 * var(--border-width)) * 8 / 20);
+    height: calc((100% + 2 * var(--border-width)) * 8 / 20);
+  }
+  .astryx-radio-indicator[data-size='md'] > .astryx-radio-indicator-dot {
+    width: calc((100% + 2 * var(--border-width)) * 10 / 24);
+    height: calc((100% + 2 * var(--border-width)) * 10 / 24);
+  }
+  @supports (width: round(1px, 1px)) {
+    .astryx-radio-indicator[data-size='sm'] > .astryx-radio-indicator-dot {
+      width: round(calc((100% + 2 * var(--border-width)) * 8 / 20), 1px);
+      height: round(calc((100% + 2 * var(--border-width)) * 8 / 20), 1px);
+    }
+    .astryx-radio-indicator[data-size='md'] > .astryx-radio-indicator-dot {
+      width: round(calc((100% + 2 * var(--border-width)) * 10 / 24), 1px);
+      height: round(calc((100% + 2 * var(--border-width)) * 10 / 24), 1px);
+    }
+  }
+  @media (forced-colors: active) {
+    .astryx-radio-indicator-dot { background-color: CanvasText; }
+  }
+}

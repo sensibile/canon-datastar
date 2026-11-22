@@ -5,6 +5,7 @@ use crate::Attr;
 use crate::field::{FieldLabelProps, FieldProps, field, field_label, field_status};
 use crate::html::{Attrs, attrs, cls, decl, el, group, join_ids, or, raw, text, void};
 use crate::icon::{IconProps, icon};
+use crate::input_group::InputGroupMember;
 use crate::misc::{SpinnerProps, VisuallyHiddenProps, spinner, visually_hidden};
 use crate::types::{FieldStatus, control_id};
 use maud::Markup;
@@ -47,11 +48,22 @@ pub struct TextInputProps {
     pub attrs: Vec<Attr>,
     /// On the `<input>`, e.g. `("data-bind:email", "")`.
     pub input_attrs: Vec<Attr>,
+    /// Places the input in an InputGroup row ([`InputGroupProps::member`](crate::InputGroupProps::member)):
+    /// no Field, and description and status messages belong to the group.
+    pub group: Option<InputGroupMember>,
 }
 
 /// Renders a labelled single-line text field.
-/// Not ported: has_clear, disabled_message (needs Tooltip), InputGroup.
+/// Not ported: has_clear, disabled_message (needs Tooltip).
 pub fn text_input(p: &TextInputProps) -> Markup {
+    let g = p.group.as_ref();
+    let mut p = p.clone();
+    if let Some(g) = g {
+        p.is_disabled = p.is_disabled || g.is_disabled;
+        p.size = or(&p.size, &g.size).to_string();
+        p.description = String::new();
+    }
+    let p = &p;
     let id = control_id(&p.id, &p.label);
     let status_id = format!("{id}-status");
     let desc_id = if p.description.is_empty() {
@@ -60,9 +72,20 @@ pub fn text_input(p: &TextInputProps) -> Markup {
         format!("{id}-desc")
     };
     let status_kind = p.status.as_ref().map(|s| s.kind.as_str()).unwrap_or("");
-    let has_message = p.status.as_ref().is_some_and(|s| !s.message.is_empty());
-    let messageless = status_kind == "error" && !has_message;
+    let mut has_message = p.status.as_ref().is_some_and(|s| !s.message.is_empty());
+    let messageless = g.is_none() && status_kind == "error" && !has_message;
+    let (labelled_by, group_desc) = match g {
+        Some(g) => {
+            has_message = false;
+            (
+                join_ids(&[&g.label_id, &format!("{id}-label")]),
+                g.described_by.clone(),
+            )
+        }
+        None => (String::new(), String::new()),
+    };
     let described_by = join_ids(&[
+        &group_desc,
         &desc_id,
         if has_message || messageless {
             &status_id
@@ -77,7 +100,7 @@ pub fn text_input(p: &TextInputProps) -> Markup {
     };
     let input = attrs()
         .set("id", &id)
-        .when(!p.is_disabled, "name", &p.name)
+        .when(!p.is_disabled && !p.name.is_empty(), "name", &p.name)
         .set("type", or(&p.kind, "text"))
         .opt("value", &p.value)
         .opt("placeholder", &p.placeholder)
@@ -88,12 +111,22 @@ pub fn text_input(p: &TextInputProps) -> Markup {
             p.is_required && !p.is_optional && !p.is_disabled,
         )
         .when(p.is_disabled, "aria-disabled", "true")
+        .opt("aria-labelledby", &labelled_by)
         .opt("aria-describedby", &described_by)
         .when(p.is_required && !p.is_optional, "aria-required", "true")
         .when(status_kind == "error", "aria-invalid", "true")
         .when(p.is_loading, "aria-busy", "true")
         .flag("autofocus", p.has_auto_focus)
         .extra(&p.input_attrs);
+    let group_label = g.map(|_| {
+        visually_hidden(
+            &VisuallyHiddenProps {
+                id: format!("{id}-label"),
+                ..Default::default()
+            },
+            text(&p.label),
+        )
+    });
     let start_icon = (!p.start_icon.is_empty()).then(|| {
         icon(&IconProps {
             color: "secondary".into(),
@@ -128,9 +161,19 @@ pub fn text_input(p: &TextInputProps) -> Markup {
             .set("data-size", or(&p.size, "md"))
             .opt("data-status", status_kind)
             .flag("data-disabled", p.is_disabled)
-            .flag("data-readonly", p.is_read_only),
-        [start_icon, Some(void("input", input)), spin, status_icon],
+            .flag("data-readonly", p.is_read_only)
+            .when(g.is_some(), "data-astryx-input-group-item", ""),
+        [
+            start_icon,
+            Some(void("input", input)),
+            spin,
+            status_icon,
+            group_label,
+        ],
     );
+    if g.is_some() {
+        return control;
+    }
     let status = p.status.as_ref().map(|s| FieldStatus {
         message_id: status_id.clone(),
         ..s.clone()
@@ -212,7 +255,7 @@ fn check_input(
         .set("id", id)
         .set("type", "checkbox")
         .opt("role", role)
-        .when(!disabled, "name", name)
+        .when(!disabled && !name.is_empty(), "name", name)
         .opt("value", value)
         .flag("checked", checked)
         .flag("required", required)
@@ -237,7 +280,7 @@ fn ids(id: &str, description: &str, status: Option<&FieldStatus>) -> (String, St
     (desc, status)
 }
 
-const CHECK_MARK: &str = r#"<svg viewBox="0 0 10 10" class="astryx-checkbox-indicator-check"><path d="M8.5 2.5L4 7.5L1.5 5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="astryx-checkbox-indicator-dash"></span>"#;
+pub(crate) const CHECK_MARK: &str = r#"<svg viewBox="0 0 10 10" class="astryx-checkbox-indicator-check"><path d="M8.5 2.5L4 7.5L1.5 5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="astryx-checkbox-indicator-dash"></span>"#;
 
 /// Renders a labelled checkbox. The indicator follows the native input (:checked,
 /// :indeterminate), so data-bind on the input drives it. `is_indeterminate` and the

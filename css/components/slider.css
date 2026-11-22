@@ -1,0 +1,213 @@
+/* Slider. Port of Astryx packages/core/src/Slider (MIT, Meta Platforms, Inc.).
+ * Markup (inside a Field): <div class="astryx-slider" data-orientation [data-disabled] [data-mark-labels]>
+ *   <input type="hidden" class="astryx-slider-value">… (one per thumb)
+ *   <div class="astryx-slider-control" data-orientation data-min data-max data-step … [role="group"]>
+ *     <div class="astryx-slider-travel"> track, fill, [marks], per thumb: [<span class="astryx-slider-anchor"> tip]
+ *       <div role="slider" class="astryx-slider-thumb">
+ *   [<span class="astryx-slider-text">]
+ * The value tip is drawn in place (not a popover layer) and shows on hover, focus and drag. */
+@layer astryx-base {
+  .astryx-slider {
+    --_thumb: 20px;
+    --_mark-label-offset: 14px;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+  }
+  .astryx-slider[data-mark-labels] {
+    padding-block-end: calc(var(--_mark-label-offset) - var(--_thumb) / 2 + var(--text-supporting-size) * var(--text-supporting-leading));
+  }
+  @media (pointer: coarse) {
+    .astryx-slider[data-mark-labels] {
+      padding-block-end: calc(var(--_mark-label-offset) - 12px + var(--text-supporting-size) * var(--text-supporting-leading));
+    }
+  }
+  .astryx-slider-control {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    isolation: isolate;
+    cursor: pointer;
+  }
+  .astryx-slider-control[data-orientation='horizontal'] { height: var(--_thumb); width: 100%; }
+  .astryx-slider-control[data-orientation='vertical'] {
+    width: var(--_thumb);
+    height: 160px;
+    flex-direction: column;
+    justify-content: center;
+  }
+  @media (pointer: coarse) {
+    .astryx-slider-control[data-orientation='horizontal'] { min-block-size: 24px; }
+    .astryx-slider-control[data-orientation='vertical'] { min-inline-size: 24px; }
+  }
+  .astryx-slider-control[data-disabled] { opacity: 0.5; cursor: default; }
+  .astryx-slider-travel { position: absolute; inset: 0; container-type: size; }
+
+  .astryx-slider-track,
+  .astryx-slider-fill-clip {
+    position: absolute;
+    border-radius: var(--radius-full);
+  }
+  .astryx-slider-track { background-color: var(--color-track); }
+  .astryx-slider-fill-clip { overflow: hidden; pointer-events: none; }
+  [data-orientation='horizontal'] > .astryx-slider-travel > :is(.astryx-slider-track, .astryx-slider-fill-clip) {
+    inset-inline: 0;
+    height: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  [data-orientation='vertical'] > .astryx-slider-travel > :is(.astryx-slider-track, .astryx-slider-fill-clip) {
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    inset-inline-start: calc(50% - 2px);
+  }
+  .astryx-slider-fill-mover { position: absolute; inset: 0; overflow: hidden; }
+  .astryx-slider-fill { position: absolute; inset: 0; background-color: var(--color-accent); }
+  [data-orientation='horizontal'] .astryx-slider-fill { border-start-end-radius: var(--radius-full); border-end-end-radius: var(--radius-full); }
+  [data-orientation='vertical'] .astryx-slider-fill { border-start-start-radius: var(--radius-full); border-start-end-radius: var(--radius-full); }
+  [data-orientation='horizontal'] .astryx-slider-fill-mover[data-range] {
+    border-start-start-radius: var(--radius-full);
+    border-end-start-radius: var(--radius-full);
+    translate: calc(var(--_thumb) / 2 + var(--_slider-fill-start) * (100cqi - var(--_thumb))) 0;
+  }
+  [data-orientation='horizontal'] .astryx-slider-fill-mover[data-range]:dir(rtl) {
+    translate: calc(var(--_thumb) / -2 - var(--_slider-fill-start) * (100cqi - var(--_thumb))) 0;
+  }
+  [data-orientation='vertical'] .astryx-slider-fill-mover[data-range] {
+    border-end-start-radius: var(--radius-full);
+    border-end-end-radius: var(--radius-full);
+    translate: 0 calc(var(--_thumb) / -2 - var(--_slider-fill-start) * (100cqb - var(--_thumb)));
+  }
+  [data-orientation='horizontal'] .astryx-slider-fill:not([data-range]) {
+    translate: calc(var(--_thumb) / 2 + var(--_slider-fill-end) * (100cqi - var(--_thumb)) - 100cqi) 0;
+  }
+  [data-orientation='horizontal'] .astryx-slider-fill:not([data-range]):dir(rtl) {
+    translate: calc(100cqi - var(--_thumb) / 2 - var(--_slider-fill-end) * (100cqi - var(--_thumb))) 0;
+  }
+  [data-orientation='vertical'] .astryx-slider-fill:not([data-range]) {
+    translate: 0 calc(100cqb - var(--_thumb) / 2 - var(--_slider-fill-end) * (100cqb - var(--_thumb)));
+  }
+  [data-orientation='horizontal'] .astryx-slider-fill[data-range] {
+    translate: calc((var(--_slider-fill-end) - var(--_slider-fill-start)) * (100cqi - var(--_thumb)) - 100cqi) 0;
+  }
+  [data-orientation='horizontal'] .astryx-slider-fill[data-range]:dir(rtl) {
+    translate: calc(100cqi - (var(--_slider-fill-end) - var(--_slider-fill-start)) * (100cqi - var(--_thumb))) 0;
+  }
+  [data-orientation='vertical'] .astryx-slider-fill[data-range] {
+    translate: 0 calc(100cqb - (var(--_slider-fill-end) - var(--_slider-fill-start)) * (100cqb - var(--_thumb)));
+  }
+
+  .astryx-slider-thumb {
+    position: absolute;
+    width: var(--_thumb);
+    height: var(--_thumb);
+    border-radius: var(--radius-full);
+    background-color: var(--color-accent);
+    transition: background-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+    outline: none;
+    cursor: grab;
+    z-index: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-slider-thumb { transition-duration: 0s; }
+  }
+  .astryx-slider-thumb[data-orientation='horizontal'] {
+    top: calc(50% - var(--_thumb) / 2);
+    inset-inline-start: 0;
+    translate: calc(var(--_slider-progress) * (100cqi - var(--_thumb))) 0;
+  }
+  .astryx-slider-thumb[data-orientation='horizontal']:dir(rtl) {
+    translate: calc(var(--_slider-progress) * (var(--_thumb) - 100cqi)) 0;
+  }
+  .astryx-slider-thumb[data-orientation='vertical'] {
+    bottom: 0;
+    inset-inline-start: calc(50% - var(--_thumb) / 2);
+    translate: 0 calc(var(--_slider-progress) * (var(--_thumb) - 100cqb));
+  }
+  @media (hover: hover) {
+    .astryx-slider-thumb:not([aria-disabled]):hover {
+      background-color: color-mix(in srgb, var(--color-accent), var(--color-tint-hover) 15%);
+    }
+  }
+  .astryx-slider-thumb[data-pressed] { background-image: linear-gradient(var(--color-overlay-pressed), var(--color-overlay-pressed)); }
+  .astryx-slider-thumb:focus-visible {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: var(--focus-outline-offset);
+  }
+  .astryx-slider-thumb[aria-disabled] { background-color: var(--color-background-muted); cursor: default; }
+
+  .astryx-slider-anchor {
+    position: absolute;
+    width: var(--_thumb);
+    height: var(--_thumb);
+    pointer-events: none;
+  }
+  [data-orientation='horizontal'] > .astryx-slider-travel > .astryx-slider-anchor {
+    top: calc(50% - var(--_thumb) / 2);
+    inset-inline-start: calc(var(--_slider-progress) * (100cqi - var(--_thumb)));
+  }
+  [data-orientation='vertical'] > .astryx-slider-travel > .astryx-slider-anchor {
+    inset-inline-start: calc(50% - var(--_thumb) / 2);
+    bottom: calc(var(--_slider-progress) * (100cqb - var(--_thumb)));
+  }
+  .astryx-slider-tip {
+    position: absolute;
+    z-index: 2;
+    padding-block: var(--spacing-1);
+    padding-inline: var(--spacing-2);
+    background-color: var(--color-background-inverted);
+    color: var(--color-background-surface);
+    border-radius: var(--radius-container);
+    font-family: var(--font-family-body);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    white-space: nowrap;
+    visibility: hidden;
+  }
+  [data-orientation='horizontal'] > .astryx-slider-travel > .astryx-slider-anchor > .astryx-slider-tip {
+    bottom: calc(100% + 4px);
+    left: 50%;
+    translate: -50% 0;
+  }
+  [data-orientation='vertical'] > .astryx-slider-travel > .astryx-slider-anchor > .astryx-slider-tip {
+    inset-inline-end: calc(100% + 4px);
+    top: 50%;
+    translate: 0 -50%;
+  }
+  .astryx-slider-control:not([data-disabled]):not([data-dragging]) .astryx-slider-anchor:has(+ .astryx-slider-thumb:is(:hover, :focus-visible)) > .astryx-slider-tip,
+  .astryx-slider-anchor:has(+ .astryx-slider-thumb[data-pressed]) > .astryx-slider-tip { visibility: visible; }
+
+  .astryx-slider-marks { position: absolute; }
+  [data-orientation='horizontal'] > .astryx-slider-travel > .astryx-slider-marks { inset-inline: 0; top: 50%; }
+  [data-orientation='vertical'] > .astryx-slider-travel > .astryx-slider-marks { top: 0; bottom: 0; inset-inline-start: 50%; }
+  .astryx-slider-mark { position: absolute; background-color: var(--color-track); border-radius: var(--radius-full); }
+  .astryx-slider-mark[data-filled] { background-color: var(--color-accent); }
+  [data-orientation='horizontal'] .astryx-slider-mark { width: 2px; height: 8px; transform: translate(-50%, -50%); }
+  [dir='rtl'] [data-orientation='horizontal'] .astryx-slider-mark { transform: translate(50%, -50%); }
+  [data-orientation='vertical'] .astryx-slider-mark { height: 2px; width: 8px; transform: translate(-50%, 50%); }
+  .astryx-slider-mark-label {
+    position: absolute;
+    font-family: var(--font-family-body);
+    font-size: var(--text-supporting-size);
+    line-height: var(--text-supporting-leading);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+  [data-orientation='horizontal'] .astryx-slider-mark-label { transform: translateX(-50%); top: var(--_mark-label-offset); }
+  [dir='rtl'] [data-orientation='horizontal'] .astryx-slider-mark-label { transform: translateX(50%); }
+  [data-orientation='vertical'] .astryx-slider-mark-label { transform: translateY(50%); inset-inline-start: calc(var(--_thumb) / 2 + 4px); }
+
+  .astryx-slider-text {
+    font-family: var(--font-family-body);
+    font-size: var(--text-label-size);
+    line-height: var(--text-label-leading);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}

@@ -1,0 +1,54 @@
+/* InputGroup, InputGroupText. Port of Astryx packages/core/src/InputGroup (MIT, Meta Platforms, Inc.).
+ * Markup (inside a Field): <div role="group" class="astryx-input-group" data-size [data-status] [data-disabled]>
+ *   members marked data-astryx-input-group-item: <div class="astryx-input-group-text"><span dir="auto">,
+ *   a grouped TextInput/NumberInput control, a Button with canon.InputGroupItem. */
+@layer astryx-base {
+  .astryx-input-group {
+    display: inline-flex;
+    align-items: stretch;
+    background-color: transparent;
+  }
+  .astryx-input-group[data-size='sm'] { height: var(--size-element-sm); }
+  .astryx-input-group[data-size='md'] { height: var(--size-element-md); }
+  .astryx-input-group[data-size='lg'] { height: var(--size-element-lg); }
+  .astryx-input-group[data-disabled] { cursor: default; opacity: 0.5; }
+
+  /* Joined members: overlap borders and square the inner corners. */
+  .astryx-input-group > [data-astryx-input-group-item] {
+    height: 100%;
+    margin-inline-start: calc(-1 * var(--border-width));
+    border-radius: 0;
+  }
+  .astryx-input-group > [data-astryx-input-group-item]:first-child {
+    margin-inline-start: 0;
+    border-start-start-radius: var(--radius-element);
+    border-end-start-radius: var(--radius-element);
+  }
+  .astryx-input-group > [data-astryx-input-group-item]:last-child {
+    border-start-end-radius: var(--radius-element);
+    border-end-end-radius: var(--radius-element);
+  }
+  .astryx-input-group > :is(button, a)[data-astryx-input-group-item] { margin-inline-start: 0; }
+  .astryx-input-group > [data-astryx-input-group-item]:is(:focus-visible, :focus-within) { z-index: 2; }
+
+  /* Grouped controls fill the row; the group dims as a whole. */
+  .astryx-input-group > :is(.astryx-text-input, .astryx-number-input)[data-astryx-input-group-item] { flex: 1; min-width: 0; }
+  .astryx-input-group > [data-astryx-input-group-item][data-disabled] { opacity: 1; }
+
+  .astryx-input-group-text {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    padding-inline: var(--spacing-2);
+    background-color: var(--color-background-muted);
+    font-family: var(--font-family-body);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    unicode-bidi: isolate;
+    flex-shrink: 0;
+    border: var(--border-width) solid var(--color-border-emphasized);
+    border-radius: var(--radius-element);
+  }
+}

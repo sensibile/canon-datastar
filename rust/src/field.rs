@@ -84,10 +84,22 @@ pub fn field_label(p: &FieldLabelProps) -> Markup {
 
 /// Renders a status message. `variant`: "attached" (default) or "detached".
 pub fn field_status(status: &FieldStatus, variant: &str, id: &str) -> Markup {
+    field_status_message(status, variant, id, "", false)
+}
+
+/// A status message with an extra class, initially hidden (for client-shown messages).
+pub(crate) fn field_status_message(
+    status: &FieldStatus,
+    variant: &str,
+    id: &str,
+    class: &str,
+    hidden: bool,
+) -> Markup {
     let variant = or(variant, "attached");
     let a = attrs()
-        .set("class", "astryx-field-status")
+        .set("class", &cls("astryx-field-status", class))
         .opt("id", id)
+        .flag("hidden", hidden)
         .set("data-type", &status.kind)
         .set("data-variant", variant);
     if variant != "detached" {

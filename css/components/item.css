@@ -1,0 +1,106 @@
+/* Item. Port of Astryx packages/core/src/Item (MIT, Meta Platforms, Inc.).
+ * Markup: <div|li|span class="astryx-item" data-density data-align [data-interactive] [data-delegate]
+ *   [data-highlighted] [data-selected] [data-disabled] [data-has-role]>
+ *   [<span class="astryx-item-start" [data-first-line]>]
+ *   <span class="astryx-item-content"> | <a class="astryx-item-action"> | <button class="astryx-item-action">
+ *     <span class="astryx-item-label" [data-truncate]> [<span class="astryx-item-description" [data-truncate]>]
+ *   [<span class="astryx-item-end" [data-first-line]>] */
+@layer astryx-base {
+  .astryx-item {
+    --_item-inset-inline: var(--spacing-2);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding-inline: var(--_item-inset-inline);
+    position: relative;
+    box-sizing: border-box;
+    text-align: start;
+    border-radius: var(--radius-element);
+    outline: none;
+  }
+  .astryx-item[data-density='compact'] { padding-block: var(--spacing-1); }
+  .astryx-item[data-density='balanced'] { padding-block: var(--spacing-2); }
+  .astryx-item[data-density='spacious'] { padding-block: var(--spacing-3); --_item-inset-inline: var(--spacing-3); }
+  .astryx-item[data-align='start'] { align-items: flex-start; }
+  .astryx-item[data-align='first-line'] { align-items: baseline; }
+  .astryx-item-start[data-first-line],
+  .astryx-item-end[data-first-line] { align-items: center; }
+  .astryx-item-start[data-first-line]::before,
+  .astryx-item-end[data-first-line]::before {
+    content: '\200B';
+    inline-size: 0;
+    overflow: hidden;
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+  }
+
+  .astryx-item[data-interactive] {
+    cursor: pointer;
+    transition: background-color var(--duration-fast-min) var(--ease-standard);
+  }
+  @media (hover: hover) {
+    .astryx-item[data-interactive]:not([data-disabled]):not([data-highlighted]):not([data-selected]):hover { background-color: var(--color-overlay-hover); }
+    .astryx-item[data-interactive][data-highlighted]:not([data-disabled]):hover,
+    .astryx-item[data-interactive][data-selected]:not([data-disabled]):hover {
+      background-image: linear-gradient(var(--color-overlay-hover), var(--color-overlay-hover));
+    }
+  }
+  .astryx-item[data-interactive]:not([data-disabled]):active { background-image: linear-gradient(var(--color-overlay-pressed), var(--color-overlay-pressed)); }
+  .astryx-item[data-highlighted] { background-color: var(--color-overlay-hover); }
+  .astryx-item[data-selected] { background-color: var(--color-accent-muted); }
+  .astryx-item[data-disabled]:not([data-has-role]) { cursor: default; pointer-events: none; }
+
+  /* The row shows the focus ring of the control that owns it. */
+  .astryx-item:has(> .astryx-item-action:focus-visible),
+  .astryx-item[data-delegate]:has(:focus-visible) {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: calc(-1 * var(--focus-outline-width));
+  }
+
+  .astryx-item-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    text-align: start;
+  }
+  .astryx-item-action {
+    all: unset;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    text-align: start;
+    color: inherit;
+    cursor: inherit;
+    text-decoration: none;
+    outline: none;
+  }
+  .astryx-item-action::after {
+    /* Stretch the hit area over the whole row. */
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .astryx-item-content[data-inline],
+  .astryx-item-action[data-inline] { flex-direction: row; align-items: center; column-gap: var(--spacing-1); }
+  .astryx-item-label[data-inline] { flex-shrink: 0; }
+  .astryx-item-description[data-inline] { flex-shrink: 1; min-width: 0; }
+  .astryx-item[data-disabled] > :is(.astryx-item-content, .astryx-item-action, .astryx-item-end) { opacity: 0.5; }
+
+  .astryx-item-label {
+    color: var(--_item-label-color, var(--color-text-primary));
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+  }
+  .astryx-item-description {
+    color: var(--_item-description-color, var(--color-text-secondary));
+    font-size: var(--text-supporting-size);
+    line-height: var(--text-supporting-leading);
+  }
+  .astryx-item [data-truncate='single'] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .astryx-item [data-truncate='multi'] { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; }
+
+  .astryx-item-start { flex: 0 0 auto; display: flex; }
+  .astryx-item-end { flex: 0 0 auto; display: flex; margin-inline-start: auto; position: relative; z-index: 1; }
+}

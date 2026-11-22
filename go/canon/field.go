@@ -62,8 +62,13 @@ func FieldLabel(p FieldLabelProps) templ.Component {
 
 // FieldStatusMessage renders a status message. Variant: "attached" (default) or "detached".
 func FieldStatusMessage(status FieldStatus, variant, id string) templ.Component {
+	return fieldStatusMessage(status, variant, id, "", false)
+}
+
+// fieldStatusMessage adds an extra class and an initially hidden state (for client-shown messages).
+func fieldStatusMessage(status FieldStatus, variant, id, class string, hidden bool) templ.Component {
 	variant = or(variant, "attached")
-	a := newAttrs().set("class", "astryx-field-status").opt("id", id).
+	a := newAttrs().set("class", cls("astryx-field-status", class)).opt("id", id).flag("hidden", hidden).
 		set("data-type", status.Type).set("data-variant", variant)
 	if variant != "detached" {
 		return el("div", a, text(status.Message))

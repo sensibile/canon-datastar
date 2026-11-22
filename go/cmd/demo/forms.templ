@@ -1,0 +1,122 @@
+package main
+
+import "github.com/sensibile/canon-datastar/go/canon"
+
+templ formsIndex(theme string, mode canon.ThemeMode) {
+	@layout("canon-datastar · Forms", theme, mode) {
+		@formsPage()
+	}
+}
+
+func f64(v float64) *float64 { return &v }
+
+templ submitted(json string) {
+	<pre id="form-result" class="demo-panel">{ json }</pre>
+}
+
+var toppings = []canon.CheckboxListItem{
+	{Label: "Cheese", Value: "cheese", Description: "Mozzarella"},
+	{Label: "Mushrooms", Value: "mushrooms"},
+	{Label: "Olives", Value: "olives", IsDisabled: true},
+	{Label: "Basil", Value: "basil", IsLoading: true},
+}
+
+var plans = []canon.RadioListItem{
+	{Label: "Free", Value: "free", Description: "Up to 3 projects"},
+	{Label: "Pro", Value: "pro", Description: "Unlimited projects"},
+	{Label: "Enterprise", Value: "enterprise", IsDisabled: true},
+}
+
+var priceGroup = canon.InputGroupProps{ID: "price", Label: "Price", Description: "Per seat, per month"}
+
+templ formsPage() {
+	<h1>Forms</h1>
+	<p class="demo-lead">Server-rendered controls bound to Datastar signals; static/canon.js adds counters, drafts, stepping, dragging and file checks.</p>
+	<div data-signals="{bio: 'Writes Go and Rust.', qty: 3, price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', agree: false}">
+		@demoSection("TextArea") {
+			<div class="demo-grid">
+				@canon.TextArea(canon.TextAreaProps{ID: "bio", Label: "Bio", Value: "Writes Go and Rust.", MaxLength: 40,
+					Description: "Counts emoji as one character", InputAttrs: []canon.Attr{canon.A("data-bind:bio", "")}})
+				@canon.TextArea(canon.TextAreaProps{Label: "Notes", StartIcon: "info", IsLoading: true, Rows: 2,
+					Status: &canon.FieldStatus{Type: "warning", Message: "Saving is slow right now"}})
+				@canon.TextArea(canon.TextAreaProps{Label: "Disabled notes", Value: "Read only text", IsDisabled: true})
+			</div>
+			<p class="demo-panel">bio: <span data-text="$bio"></span></p>
+		}
+		@demoSection("NumberInput") {
+			<div class="demo-grid">
+				@canon.NumberInput(canon.NumberInputProps{ID: "qty", Label: "Quantity", Value: f64(3), Min: f64(0), Max: f64(10),
+					HasNumberSteppers: true, IsIntegerOnly: true, ValueAttrs: []canon.Attr{canon.A("data-bind:qty", "")}})
+				@canon.NumberInput(canon.NumberInputProps{ID: "amount", Label: "Amount", Value: f64(1234.5), HasClear: true,
+					Format: `{"style":"currency","currency":"USD"}`, Description: "Paste \"(12)\" or \"€5\"", Units: "USD"})
+				@canon.NumberInput(canon.NumberInputProps{ID: "ratio", Label: "Ratio (de-DE)", Value: f64(0.5), Step: 0.1, Locale: "de-DE",
+					Status: &canon.FieldStatus{Type: "success", Message: "Looks good"}})
+			</div>
+			<p class="demo-panel">qty: <span data-text="$qty"></span> · <button type="button" data-on:click="$qty = 7">Set qty to 7</button></p>
+		}
+		@demoSection("InputGroup") {
+			<div class="demo-grid">
+				@canon.InputGroup(priceGroup) {
+					@canon.InputGroupText("$")
+					@canon.NumberInput(canon.NumberInputProps{ID: "price-amount", Label: "Amount", Value: f64(1200), Group: priceGroup.Member(),
+						ValueAttrs: []canon.Attr{canon.A("data-bind:price", "")}})
+					@canon.InputGroupText("USD")
+				}
+				@canon.InputGroup(canon.InputGroupProps{ID: "site", Label: "Website", Size: "md"}) {
+					@canon.InputGroupText("https://")
+					@canon.TextInput(canon.TextInputProps{ID: "site-host", Label: "Host", Placeholder: "example.com",
+						Group: (canon.InputGroupProps{ID: "site", Label: "Website"}).Member()})
+					@canon.Button(canon.ButtonProps{Label: "Check", Attrs: []canon.Attr{canon.InputGroupItem}})
+				}
+			</div>
+		}
+		@demoSection("CheckboxList and RadioList") {
+			<div class="demo-grid">
+				@canon.CheckboxList(canon.CheckboxListProps{ID: "toppings", Label: "Toppings", Name: "toppings", IsRequired: true,
+					Description: "Pick at least one", Items: toppings})
+				@canon.CheckboxList(canon.CheckboxListProps{ID: "compact", Label: "Compact, dividers", Density: "compact", HasDividers: true,
+					Items: []canon.CheckboxListItem{{Label: "Email", IsChecked: true}, {Label: "SMS", IsIndeterminate: true}, {Label: "Push"}}})
+				@canon.RadioList(canon.RadioListProps{ID: "plan", Label: "Plan", Value: "pro", Items: plans,
+					InputAttrs: []canon.Attr{canon.A("data-bind:plan", "")}})
+				@canon.RadioList(canon.RadioListProps{ID: "size", Label: "Size (none checked)", Orientation: "horizontal", Size: "sm",
+					Status: &canon.FieldStatus{Type: "error", Message: "Choose a size"},
+					Items: []canon.RadioListItem{{Label: "S", Value: "s"}, {Label: "M", Value: "m"}, {Label: "L", Value: "l"}}})
+			</div>
+			<p class="demo-panel">plan: <span data-text="$plan"></span></p>
+		}
+		@demoSection("Slider") {
+			<div class="demo-grid">
+				@canon.Slider(canon.SliderProps{ID: "volume", Label: "Volume", Values: []float64{40}, Step: 5,
+					Marks: []canon.SliderMark{{Value: 0, Label: "0"}, {Value: 50, Label: "50"}, {Value: 100, Label: "100"}},
+					ValueAttrs: []canon.Attr{canon.A("data-bind:volume", "")}})
+				@canon.Slider(canon.SliderProps{ID: "range", Label: "Price range", Values: []float64{20, 80}, MinStepsBetweenThumbs: 10,
+					ValueDisplay: "text", Format: `{"style":"currency","currency":"USD","maximumFractionDigits":0}`,
+					ValueAttrs: []canon.Attr{canon.A("data-bind:low", "")}, EndValueAttrs: []canon.Attr{canon.A("data-bind:high", "")}})
+				@canon.Slider(canon.SliderProps{Label: "Disabled", Values: []float64{30}, IsDisabled: true})
+			</div>
+			<p class="demo-panel">volume: <span data-text="$volume"></span> · range: <span data-text="$low + '–' + $high"></span></p>
+		}
+		@demoSection("FileInput") {
+			<div class="demo-grid">
+				@canon.FileInput(canon.FileInputProps{ID: "avatar", Label: "Avatar", Accept: "image/*", MaxSize: 1048576,
+					Description: "An image up to 1 MB"})
+				@canon.FileInput(canon.FileInputProps{ID: "docs", Label: "Documents", Mode: "dropzone", IsMultiple: true, MaxFiles: 2,
+					Accept: ".pdf,.txt"})
+				@canon.FileInput(canon.FileInputProps{Label: "Uploading", IsLoading: true})
+			</div>
+		}
+		@demoSection("Item") {
+			<div class="demo-grid">
+				@canon.Item(canon.ItemProps{Label: "Plain row", Description: "With a description"})
+				@canon.Item(canon.ItemProps{Label: "Button row", Description: "Datastar click", Action: []canon.Attr{canon.A("data-on:click", "$qty++")},
+					EndContent: canon.Badge(canon.BadgeProps{Label: "qty++"})})
+				@canon.Item(canon.ItemProps{Label: "Link row", Href: "/content", Layout: "inline", Description: "inline description"})
+				@canon.Item(canon.ItemProps{Label: "Disabled row", Action: []canon.Attr{canon.A("data-on:click", "$qty++")}, IsDisabled: true})
+			</div>
+		}
+		@demoSection("Submit") {
+			@canon.Button(canon.ButtonProps{Label: "Send signals", Variant: "primary", Attrs: []canon.Attr{canon.A("data-on:click", "@post('/demo/forms')")}})
+			@submitted("")
+		}
+	</div>
+}

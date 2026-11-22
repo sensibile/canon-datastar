@@ -698,6 +698,7 @@ func overlaysPage() templ.Component {
 			{Value: "/", Label: "Tokens", Href: "/"},
 			{Value: "/components", Label: "Components", Href: "/components"},
 			{Value: "/content", Label: "Content", Href: "/content"},
+			{Value: "/forms", Label: "Forms", Href: "/forms"},
 			{Value: "/overlays", Label: "Overlays", Href: "/overlays"},
 		}}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {

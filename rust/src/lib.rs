@@ -15,10 +15,13 @@ mod container;
 mod content;
 mod dialog;
 mod field;
+mod forms;
 mod html;
 mod icon;
 mod icons_gen;
+mod input_group;
 mod inputs;
+mod item;
 mod link;
 mod menu;
 mod metadata;
@@ -52,10 +55,19 @@ pub use content::{
 };
 pub use dialog::{DialogHeaderProps, DialogProps, dialog, dialog_header};
 pub use field::{FieldLabelProps, FieldProps, field, field_label, field_status};
+pub use forms::{
+    CheckboxListItem, CheckboxListProps, FileInputProps, NumberInputProps, RadioListItem,
+    RadioListProps, SliderMark, SliderProps, TextAreaProps, checkbox_list, file_input,
+    number_input, radio_list, slider, text_area,
+};
 pub use icon::{IconProps, icon, icon_names};
+pub use input_group::{
+    InputGroupMember, InputGroupProps, input_group, input_group_item, input_group_text,
+};
 pub use inputs::{
     CheckboxInputProps, SwitchProps, TextInputProps, checkbox_input, switch, text_input,
 };
+pub use item::{ItemProps, item};
 pub use link::{LinkProps, link};
 pub use menu::{
     DropdownMenuGroupProps, DropdownMenuItemProps, DropdownMenuProps, dropdown_menu,
