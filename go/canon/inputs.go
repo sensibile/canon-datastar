@@ -35,12 +35,21 @@ type TextInputProps struct {
 	Class, ControlClass string
 	// Attrs go on the Field container; InputAttrs on the <input>, e.g. {"data-bind:email", ""}.
 	Attrs, InputAttrs []Attr
+	// Group places the input in an InputGroup row (InputGroupProps.Member): no Field, and
+	// Description and Status messages belong to the group.
+	Group *InputGroupMember
 }
 
 // TextInput renders a labelled single-line text field.
 // Port of Astryx `TextInput` (packages/core/src/TextInput), MIT, Meta Platforms, Inc.
-// Not ported: hasClear, disabledMessage (needs Tooltip), InputGroup.
+// Not ported: hasClear, disabledMessage (needs Tooltip).
 func TextInput(p TextInputProps) templ.Component {
+	g := p.Group
+	if g != nil {
+		p.IsDisabled = p.IsDisabled || g.IsDisabled
+		p.Size = or(p.Size, g.Size)
+		p.Description = ""
+	}
 	id := controlID(p.ID, p.Label)
 	statusID := id + "-status"
 	descID := ""
@@ -53,14 +62,19 @@ func TextInput(p TextInputProps) templ.Component {
 		statusType = p.Status.Type
 		hasMessage = p.Status.Message != ""
 	}
-	messageless := statusType == "error" && !hasMessage
-	describedBy := joinIDs(descID, map[bool]string{true: statusID}[hasMessage || messageless])
+	messageless := g == nil && statusType == "error" && !hasMessage
+	labelledBy, groupDesc := "", ""
+	if g != nil {
+		labelledBy, groupDesc = joinIDs(g.LabelID, id+"-label"), g.DescribedBy
+		hasMessage = false
+	}
+	describedBy := joinIDs(groupDesc, descID, map[bool]string{true: statusID}[hasMessage || messageless])
 	spell := ""
 	if p.HasSpellCheck != nil {
 		spell = map[bool]string{true: "true", false: "false"}[*p.HasSpellCheck]
 	}
 	input := newAttrs().set("id", id).
-		when(!p.IsDisabled, "name", p.Name).
+		when(!p.IsDisabled && p.Name != "", "name", p.Name).
 		set("type", or(p.Type, "text")).
 		opt("value", p.Value).
 		opt("placeholder", p.Placeholder).
@@ -68,13 +82,14 @@ func TextInput(p TextInputProps) templ.Component {
 		flag("readonly", p.IsReadOnly || p.IsDisabled).
 		flag("required", p.IsRequired && !p.IsOptional && !p.IsDisabled).
 		when(p.IsDisabled, "aria-disabled", "true").
+		opt("aria-labelledby", labelledBy).
 		opt("aria-describedby", describedBy).
 		when(p.IsRequired && !p.IsOptional, "aria-required", "true").
 		when(statusType == "error", "aria-invalid", "true").
 		when(p.IsLoading, "aria-busy", "true").
 		flag("autofocus", p.HasAutoFocus).
 		extra(p.InputAttrs)
-	var startIcon, spinner, statusIcon, hidden templ.Component
+	var startIcon, spinner, statusIcon, hidden, groupLabel templ.Component
 	if p.StartIcon != "" {
 		startIcon = Icon(IconProps{Name: p.StartIcon, Size: "sm", Color: "secondary"})
 	}
@@ -87,12 +102,19 @@ func TextInput(p TextInputProps) templ.Component {
 	if messageless {
 		hidden = visuallyHidden(VisuallyHiddenProps{ID: statusID}, text("This field has an error"))
 	}
+	if g != nil {
+		groupLabel = visuallyHidden(VisuallyHiddenProps{ID: id + "-label"}, text(p.Label))
+	}
 	control := el("div", newAttrs().set("class", cls("astryx-text-input", p.ControlClass)).
 		set("data-size", or(p.Size, "md")).
 		opt("data-status", statusType).
 		flag("data-disabled", p.IsDisabled).
-		flag("data-readonly", p.IsReadOnly),
-		startIcon, void("input", input), spinner, statusIcon)
+		flag("data-readonly", p.IsReadOnly).
+		when(g != nil, "data-astryx-input-group-item", ""),
+		startIcon, void("input", input), spinner, statusIcon, groupLabel)
+	if g != nil {
+		return control
+	}
 	var status *FieldStatus
 	if p.Status != nil {
 		status = &FieldStatus{Type: p.Status.Type, Message: p.Status.Message, MessageID: statusID}
@@ -185,7 +207,7 @@ func checkInput(id, role, name, value string, checked, required, disabled bool, 
 		invalid = "false"
 	}
 	return newAttrs().set("id", id).set("type", "checkbox").opt("role", role).
-		when(!disabled, "name", name).
+		when(!disabled && name != "", "name", name).
 		opt("value", value).
 		flag("checked", checked).
 		flag("required", required).

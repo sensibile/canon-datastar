@@ -361,7 +361,7 @@ pub struct AvatarGroupOverflowProps {
 }
 
 /// `n` with comma separators, like en-US toLocaleString.
-fn group_thousands(n: i64) -> String {
+pub(crate) fn group_thousands(n: i64) -> String {
     let s = n.to_string();
     let mut out = String::new();
     for (i, c) in s.chars().enumerate() {

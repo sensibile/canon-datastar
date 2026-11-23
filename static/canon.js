@@ -1,6 +1,7 @@
 // canon.js: client behaviour for canon-datastar components: overlays (Tooltip, InfoTip, Popover,
-// Dialog, DropdownMenu, TabList, Toast) and content (Collapsible, Banner, Avatar, Token,
-// MetadataList, Thumbnail, Kbd, Timestamp). Ports the interaction logic of Astryx (packages/core/src),
+// Dialog, DropdownMenu, TabList, Toast), content (Collapsible, Banner, Avatar, Token,
+// MetadataList, Thumbnail, Kbd, Timestamp) and forms (TextArea, Item, CheckboxList, RadioList,
+// NumberInput, Slider, FileInput). It imports ./number-parser.js, so serve both. Ports the interaction logic of Astryx (packages/core/src),
 // MIT, Meta Platforms, Inc.
 //
 // Load it before Datastar so Datastar expressions can call window.canon:
@@ -12,6 +13,8 @@
 // This file adds positioning, keyboard models, tooltips, toast timers and the window.canon API.
 // It wires markup through event delegation and a MutationObserver, so elements patched in by
 // Datastar SSE work without any setup.
+
+import { formatEditableNumber, getNumberInputRejection, parseNumberInput, resolveNumberInputCommit } from './number-parser.js';
 
 const doc = document;
 const GAP = 4;
@@ -1286,6 +1289,1035 @@ doc.addEventListener('focusout', () => {
 });
 
 // ---------------------------------------------------------------------------------------------
+// Forms.
+
+const segmenter = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+/** User-perceived characters, so an emoji counts as one (Astryx utils/characters). */
+function characterCount(str) {
+  if (str === '') return 0;
+  if (!segmenter) return [...str].length;
+  let n = 0;
+  for (const _ of segmenter.segment(str)) n++;
+  return n;
+}
+
+const plural = (n) => `${n.toLocaleString()} ${n === 1 ? 'character' : 'characters'}`;
+
+/** Refresh a TextArea's counter; with announce, speak once on entering "near" or "over". */
+function countTextArea(ta, announce = false) {
+  const max = Number(ta.dataset.maxLength);
+  const box = ta.closest('.astryx-text-area');
+  const counter = box?.querySelector(':scope > .astryx-text-area-counter');
+  const count = counter?.querySelector('.astryx-text-area-count');
+  if (!max || !count) return;
+  const n = characterCount(ta.value);
+  const over = n > max;
+  const label = `${n.toLocaleString()}/${max.toLocaleString()}`;
+  if (count.textContent !== label) count.textContent = label;
+  if (counter.hasAttribute('data-over') !== over) counter.toggleAttribute('data-over', over);
+  const invalid = over || box.dataset.status === 'error';
+  if (invalid) ta.setAttribute('aria-invalid', 'true');
+  else ta.removeAttribute('aria-invalid');
+  if (!announce) return;
+  const zone = over ? 'over' : n >= max * 0.8 ? 'near' : 'under';
+  if (zone === ta._canonZone) return;
+  ta._canonZone = zone;
+  const field = box.parentElement?.closest('.astryx-field') ?? box.parentElement;
+  if (zone === 'over') {
+    const live = field?.querySelector('.astryx-text-area-assertive');
+    if (live) live.textContent = `${plural(n - max)} over the limit`;
+  } else if (zone === 'near') {
+    const live = field?.querySelector('.astryx-text-area-polite');
+    if (live) live.textContent = `${plural(max - n)} remaining`;
+  }
+}
+
+doc.addEventListener('input', (e) => {
+  const t = e.target;
+  if (t instanceof HTMLTextAreaElement && t.matches('.astryx-text-area-control[data-max-length]')) countTextArea(t, true);
+});
+
+// Clicking the padding around a TextArea focuses it.
+doc.addEventListener('click', (e) => {
+  const box = e.target instanceof Element && e.target.matches('.astryx-text-area') ? e.target : null;
+  if (!box || box.hasAttribute('data-disabled')) return;
+  const ta = box.querySelector('.astryx-text-area-control');
+  if (ta && !ta.matches('[aria-busy="true"]')) ta.focus();
+});
+
+// Item rows that delegate: a click on the row's empty space clicks the control in it.
+doc.addEventListener('click', (e) => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  const row = t.closest('.astryx-item[data-delegate]');
+  if (!row || row.hasAttribute('data-disabled')) return;
+  const control = row.querySelector(':scope > .astryx-item-start input, :scope > .astryx-item-start button');
+  if (!control || control.contains(t) || t.closest('button, a, input, select, textarea, label')) return;
+  control.click();
+  control.focus({ preventScroll: true });
+});
+
+/** A required CheckboxList: only the first enabled box is required, and only while none is checked. */
+function syncRequired(group) {
+  const boxes = [...group.querySelectorAll('input[type="checkbox"]')];
+  const empty = !boxes.some((b) => b.checked);
+  const target =
+    group.hasAttribute('data-required') && empty
+      ? boxes.find((b) => !b.disabled && !b.hasAttribute('aria-readonly'))
+      : undefined;
+  for (const b of boxes) if (b.required !== (b === target)) b.required = b === target;
+}
+doc.addEventListener('change', (e) => {
+  const group = e.target instanceof Element ? e.target.closest('.astryx-checkbox-list-group') : null;
+  if (group) syncRequired(group);
+});
+/** Put a hidden input back to its wiring-time value; true (and marked) when that changed it. */
+function restoreDefault(h) {
+  if (h._canonDefault === undefined || nativeValue.get.call(h) === h._canonDefault) return false;
+  nativeValue.set.call(h, h._canonDefault);
+  h._canonRestored = true;
+  return true;
+}
+/** Tell data-bind about a restored value. */
+function notify(h) {
+  if (!h._canonRestored) return;
+  h._canonRestored = false;
+  h.dispatchEvent(new Event('input', { bubbles: true }));
+  h.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+// A form reset restores controls without events; resync once the browser is done.
+doc.addEventListener('reset', (e) => {
+  const form = e.target;
+  if (!(form instanceof HTMLFormElement)) return;
+  setTimeout(() => {
+    if (e.defaultPrevented) return; // a listener cancelled the reset
+    for (const el of form.elements) {
+      if (el instanceof HTMLTextAreaElement && el.matches('.astryx-text-area-control[data-max-length]')) countTextArea(el);
+    }
+    for (const g of doc.querySelectorAll('.astryx-checkbox-list-group')) {
+      if (g.querySelector('input[type="checkbox"]')?.form === form) syncRequired(g);
+    }
+    // Hidden inputs have no separate default (setting .value rewrites the attribute), so the
+    // values recorded at wiring time are restored by hand.
+    for (const ctl of doc.querySelectorAll('.astryx-number-input')) {
+      const { hidden } = numberParts(ctl);
+      if (hidden?.form !== form || hidden._canonDefault === undefined) continue;
+      endNumberDraft(ctl);
+      restoreDefault(hidden);
+      renderNumber(ctl);
+      notify(hidden);
+    }
+    for (const ctl of doc.querySelectorAll('.astryx-slider-control')) {
+      const hiddens = sliderHiddens(ctl);
+      if (hiddens[0]?.form !== form) continue;
+      const changed = hiddens.filter(restoreDefault);
+      renderSlider(ctl);
+      for (const h of changed) notify(h);
+    }
+    for (const box of doc.querySelectorAll('.astryx-file-input')) {
+      const input = fileNative(box);
+      if (input?.form !== form) continue;
+      const had = box.hasAttribute('data-has-files');
+      renderFiles(box, null);
+      // data-bind reads files on change only; let it see the emptied selection.
+      if (had && input.files.length === 0) input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }, 0);
+});
+
+// RadioList: with nothing checked, focus entering the group lands on the first radio (the
+// last when tabbing backwards), and Tab from a radio leaves the group in one step.
+doc.addEventListener('focusin', (e) => {
+  const t = e.target;
+  const group = t instanceof HTMLInputElement && t.type === 'radio' ? t.closest('.astryx-radio-list') : null;
+  if (!group) return;
+  const radios = [...group.querySelectorAll('input[type="radio"]:not([disabled])')].filter((r) => r.name === t.name);
+  if (radios.some((r) => r.checked)) return;
+  if (e.relatedTarget instanceof Node && group.contains(e.relatedTarget)) return;
+  const index = radios.indexOf(t);
+  if (index === -1) return;
+  const intended = index === radios.length - 1 ? radios[radios.length - 1] : radios[0];
+  if (intended !== t) intended.focus();
+});
+doc.addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab' || e.ctrlKey || e.metaKey) return;
+  const from = e.target;
+  const group = from instanceof HTMLInputElement && from.type === 'radio' ? from.closest('.astryx-radio-list') : null;
+  if (!group) return;
+  const others = [...group.querySelectorAll('input[type="radio"]')].filter((r) => r !== from && r.name === from.name);
+  const saved = others.map((r) => [r, r.getAttribute('tabindex')]);
+  for (const r of others) r.tabIndex = -1;
+  setTimeout(() => {
+    for (const [r, t] of saved) {
+      if (t == null) r.removeAttribute('tabindex');
+      else r.setAttribute('tabindex', t);
+    }
+  }, 0);
+});
+
+// NumberInput: typing is a draft that commits on blur or Enter. The committed number lives in
+// the hidden .astryx-number-input-value input (where data-bind goes).
+
+/** Set an id-list attribute only when it changes (aria-describedby edits trigger a rescan). */
+function setIDs(el, attr, ids) {
+  const next = ids.join(' ');
+  if ((el.getAttribute(attr) ?? '') === next) return;
+  if (next) el.setAttribute(attr, next);
+  else el.removeAttribute(attr);
+}
+
+const nativeValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+const numberParts = (ctl) => ({
+  field: ctl.querySelector(':scope > .astryx-number-input-field'),
+  hidden: ctl.querySelector(':scope > .astryx-number-input-value'),
+});
+const optNumber = (s) => (s === undefined || s === '' ? null : Number(s));
+
+function numberState(ctl) {
+  if (!ctl._canonNumber) {
+    ctl._canonNumber = { pending: null, focused: false, rejection: null, kept: false, holdDraft: null, hold: null, clickAfterHold: false };
+  }
+  return ctl._canonNumber;
+}
+const numberRules = (ctl) => ({
+  min: optNumber(ctl.dataset.min),
+  max: optNumber(ctl.dataset.max),
+  isIntegerOnly: ctl.hasAttribute('data-integer'),
+  locale: ctl.dataset.locale || undefined,
+});
+const numberInactive = (ctl) => ctl.hasAttribute('data-disabled') || ctl.hasAttribute('data-readonly');
+
+function committedNumber(ctl) {
+  const { hidden } = numberParts(ctl);
+  const raw = hidden ? nativeValue.get.call(hidden) : '';
+  if (raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatNumber(ctl, value) {
+  const options = ctl.dataset.format;
+  if (!options) return null;
+  try {
+    return new Intl.NumberFormat(ctl.dataset.locale || undefined, JSON.parse(options)).format(value);
+  } catch {
+    return null;
+  }
+}
+
+function decimalPlaces(n) {
+  const [coefficient, exponentText] = String(n).toLowerCase().split('e');
+  const fraction = coefficient.split('.')[1]?.length ?? 0;
+  return Math.max(0, fraction - (exponentText == null ? 0 : Number(exponentText)));
+}
+
+function steppedValue(ctl, current, direction) {
+  const { min, max, isIntegerOnly } = numberRules(ctl);
+  const step = optNumber(ctl.dataset.step);
+  const effective = step == null || !Number.isFinite(step) || step <= 0 || (isIntegerOnly && !Number.isInteger(step)) ? 1 : step;
+  const base = min != null && (!isIntegerOnly || Number.isInteger(min)) ? min : 0;
+  let next;
+  if (current == null) {
+    next = direction === 1 ? (min ?? 0) : (max ?? 0);
+    if (isIntegerOnly) next = direction === 1 ? Math.ceil(next) : Math.floor(next);
+  } else {
+    const position = (current - base) / effective;
+    const tolerance = Number.EPSILON * Math.max(1, Math.abs(position)) * 4;
+    const nextPosition = direction === 1 ? Math.floor(position + tolerance) + 1 : Math.ceil(position - tolerance) - 1;
+    next = base + nextPosition * effective;
+  }
+  next = Number(next.toFixed(Math.min(100, Math.max(decimalPlaces(effective), decimalPlaces(base)))));
+  if (min != null) next = Math.max(min, next);
+  if (max != null) next = Math.min(max, next);
+  if (!Number.isFinite(next) || (isIntegerOnly && !Number.isInteger(next))) return current;
+  return Object.is(next, -0) ? 0 : next;
+}
+
+function valueForStepping(ctl) {
+  const s = numberState(ctl);
+  const value = committedNumber(ctl);
+  if (s.pending === null) return value;
+  if (s.pending.trim() === '') return null;
+  return parseNumberInput(s.pending, numberRules(ctl)) ?? value;
+}
+
+/** Bring the visible text, ARIA, clear button, steppers and error state up to date. */
+function renderNumber(ctl) {
+  const { field } = numberParts(ctl);
+  if (!field) return;
+  const s = numberState(ctl);
+  const locale = ctl.dataset.locale || undefined;
+  const value = committedNumber(ctl);
+  const formatted = value == null ? '' : (formatNumber(ctl, value) ?? String(value));
+  const text =
+    s.holdDraft !== null
+      ? formatEditableNumber(s.holdDraft, locale)
+      : s.pending !== null
+        ? s.pending
+        : value == null
+          ? ''
+          : s.focused
+            ? formatEditableNumber(value, locale)
+            : formatted;
+  if (field.value !== text) field.value = text;
+  if (value == null) field.removeAttribute('aria-valuenow');
+  else field.setAttribute('aria-valuenow', String(value));
+  if (value != null && ctl.dataset.format && formatted !== String(value)) field.setAttribute('aria-valuetext', formatted);
+  else field.removeAttribute('aria-valuetext');
+  const clear = ctl.querySelector(':scope > [data-number-input-clear]');
+  if (clear) clear.hidden = value == null;
+  const current = s.holdDraft ?? valueForStepping(ctl);
+  for (const b of ctl.querySelectorAll(':scope > .astryx-number-input-steppers > .astryx-number-input-stepper')) {
+    const dir = b.dataset.direction === 'increment' ? 1 : -1;
+    const off = numberInactive(ctl) || steppedValue(ctl, current, dir) === current;
+    if (off) b.setAttribute('aria-disabled', 'true');
+    else b.removeAttribute('aria-disabled');
+  }
+  // A rejected draft on screen (hidden while disabled or holding a stepper).
+  const shown = !ctl.hasAttribute('data-disabled') && s.holdDraft === null && s.rejection !== null;
+  ctl.toggleAttribute('data-entry-error', shown);
+  const callerError = ctl.dataset.status === 'error';
+  if (shown || callerError) field.setAttribute('aria-invalid', 'true');
+  else field.removeAttribute('aria-invalid');
+  // A rejected draft also blocks explicit form submission, not just Enter.
+  const validity = shown ? 'Invalid number' : '';
+  if (field.validationMessage !== validity) field.setCustomValidity(validity);
+  const fieldEl = ctl.closest('.astryx-field');
+  const entry = fieldEl && !ctl.hasAttribute('data-astryx-input-group-item') ? doc.getElementById(`${field.id}-entry`) : null;
+  if (entry) {
+    entry.hidden = !shown;
+    const own = doc.getElementById(`${field.id}-status`);
+    if (own && own !== entry) own.hidden = shown;
+    const ids = (field.getAttribute('aria-describedby') ?? '').split(/\s+/).filter((x) => x && x !== entry.id);
+    const at = own ? ids.indexOf(own.id) : -1;
+    if (shown) ids.splice(at === -1 ? ids.length : at, at === -1 ? 0 : 1, entry.id);
+    else if (own && !ids.includes(own.id) && own.textContent) ids.push(own.id);
+    setIDs(field, 'aria-describedby', ids);
+  }
+  const alert = ctl.querySelector(':scope > .astryx-number-input-alert');
+  const alertText = shown && !ctl.hasAttribute('data-error-message') && !entry ? 'Invalid number' : '';
+  if (alert && alert.textContent !== alertText) alert.textContent = alertText;
+}
+
+function emitNumber(ctl, next) {
+  const { hidden } = numberParts(ctl);
+  if (!hidden) return;
+  nativeValue.set.call(hidden, next == null ? '' : String(next));
+  renderNumber(ctl);
+  hidden.dispatchEvent(new Event('input', { bubbles: true }));
+  hidden.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function endNumberDraft(ctl) {
+  const s = numberState(ctl);
+  s.pending = null;
+  s.rejection = null;
+  s.kept = false;
+}
+
+/** Commits the draft; false when it was rejected and stays on screen. */
+function commitNumber(ctl, trigger) {
+  const s = numberState(ctl);
+  if (s.pending === null) return true;
+  if (ctl.hasAttribute('data-disabled')) {
+    endNumberDraft(ctl);
+    return true;
+  }
+  const rules = numberRules(ctl);
+  const rejection = getNumberInputRejection(s.pending, rules);
+  if (rejection != null) {
+    s.rejection = rejection;
+    if (trigger === 'blur') s.kept = true;
+    renderNumber(ctl);
+    return false;
+  }
+  s.rejection = null;
+  s.kept = false;
+  const hasClear = ctl.hasAttribute('data-clear');
+  const decision = resolveNumberInputCommit(s.pending, { ...rules, hasClear });
+  if (trigger === 'blur' || decision.type === 'revert' || (decision.type === 'commit' && decision.didClamp)) s.pending = null;
+  const value = committedNumber(ctl);
+  if (decision.type === 'clear') {
+    if (hasClear && value != null) return emitNumber(ctl, null), true;
+  } else if (decision.type === 'commit' && decision.value !== value) {
+    return emitNumber(ctl, decision.value), true;
+  }
+  renderNumber(ctl);
+  return true;
+}
+
+function stepNumber(ctl, direction) {
+  if (numberInactive(ctl)) return;
+  const next = steppedValue(ctl, valueForStepping(ctl), direction);
+  if (next == null) return;
+  endNumberDraft(ctl);
+  if (next !== committedNumber(ctl)) emitNumber(ctl, next);
+  else renderNumber(ctl);
+}
+
+const numberControl = (t) => (t instanceof Element ? t.closest('.astryx-number-input') : null);
+const isNumberField = (t) => t instanceof HTMLInputElement && t.matches('.astryx-number-input-field');
+
+doc.addEventListener('input', (e) => {
+  if (!isNumberField(e.target)) return;
+  const ctl = numberControl(e.target);
+  if (numberInactive(ctl)) return;
+  const s = numberState(ctl);
+  s.pending = e.target.value;
+  s.kept = false;
+  if (s.rejection !== null && getNumberInputRejection(s.pending, numberRules(ctl)) === null) s.rejection = null;
+  // Steppers follow the draft, since stepping starts from it.
+  renderNumber(ctl);
+});
+doc.addEventListener('focusin', (e) => {
+  if (!isNumberField(e.target)) return;
+  const input = e.target;
+  const ctl = numberControl(input);
+  const s = numberState(ctl);
+  const value = committedNumber(ctl);
+  const editable = s.pending ?? (value == null ? '' : formatEditableNumber(value, ctl.dataset.locale || undefined));
+  const reselect =
+    input.value.length > 0 && input.value !== editable && input.selectionStart === 0 && input.selectionEnd === input.value.length;
+  s.focused = true;
+  renderNumber(ctl);
+  if (reselect) queueMicrotask(() => input.setSelectionRange(0, input.value.length));
+});
+doc.addEventListener('focusout', (e) => {
+  if (!isNumberField(e.target)) return;
+  const ctl = numberControl(e.target);
+  commitNumber(ctl, 'blur');
+  numberState(ctl).focused = false;
+  renderNumber(ctl);
+});
+doc.addEventListener('keydown', (e) => {
+  if (!isNumberField(e.target)) return;
+  const ctl = numberControl(e.target);
+  if (ctl.hasAttribute('data-disabled')) {
+    if (e.key === 'Enter') e.preventDefault();
+    return;
+  }
+  if (e.isComposing || e.defaultPrevented) return;
+  const modified = e.altKey || e.ctrlKey || e.metaKey || e.shiftKey;
+  if (!modified && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault();
+    stepNumber(ctl, e.key === 'ArrowUp' ? 1 : -1);
+  } else if (e.key === 'Enter' && !commitNumber(ctl, 'Enter')) {
+    // A rejected draft must not reach the form through implicit submission.
+    e.preventDefault();
+  }
+});
+function numberWheel(e) {
+  const input = e.currentTarget;
+  const ctl = numberControl(input);
+  if (!ctl || ctl.hasAttribute('data-no-wheel') || doc.activeElement !== input || numberInactive(ctl)) return;
+  if (e.deltaY === 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  e.preventDefault();
+  e.stopPropagation();
+  stepNumber(ctl, e.deltaY < 0 ? 1 : -1);
+}
+
+// Steppers: press and hold repeats, accelerating, and commits on release.
+const HOLD = { delayMs: 500, firstIntervalMs: 250, acceleration: 0.9, minIntervalMs: 50 };
+const stepperOf = (t) => (t instanceof Element ? t.closest('.astryx-number-input-stepper') : null);
+const stepDir = (b) => (b.dataset.direction === 'increment' ? 1 : -1);
+function cancelHold(ctl) {
+  const s = numberState(ctl);
+  if (!s.hold) return;
+  if (s.hold.timer != null) clearTimeout(s.hold.timer);
+  s.hold = null;
+  s.holdDraft = null;
+  renderNumber(ctl);
+}
+function endHold(ctl, end, pointerId) {
+  const s = numberState(ctl);
+  const h = s.hold;
+  if (!h || h.pointerId !== pointerId) return;
+  s.hold = null;
+  if (h.timer != null) clearTimeout(h.timer);
+  if (h.held == null) return;
+  s.clickAfterHold = end === 'release';
+  s.holdDraft = null;
+  if (numberInactive(ctl)) return renderNumber(ctl);
+  endNumberDraft(ctl);
+  if (h.held !== committedNumber(ctl)) emitNumber(ctl, h.held);
+  else renderNumber(ctl);
+}
+doc.addEventListener('pointerdown', (e) => {
+  const b = stepperOf(e.target);
+  if (!b) return;
+  const ctl = numberControl(b);
+  const s = numberState(ctl);
+  e.preventDefault();
+  s.clickAfterHold = false;
+  cancelHold(ctl);
+  if (e.button !== 0 || e.pointerType === 'touch' || b.hasAttribute('aria-disabled') || numberInactive(ctl)) return;
+  const dir = stepDir(b);
+  const first = steppedValue(ctl, valueForStepping(ctl), dir);
+  if (first == null) return;
+  b.setPointerCapture?.(e.pointerId);
+  const h = { pointerId: e.pointerId, timer: null, held: null, intervalMs: HOLD.firstIntervalMs };
+  const repeat = () => {
+    const next = h.held == null ? first : steppedValue(ctl, h.held, dir);
+    if (next == null || next === h.held) {
+      h.timer = null;
+      return;
+    }
+    h.held = next;
+    s.holdDraft = next;
+    renderNumber(ctl);
+    h.timer = setTimeout(repeat, h.intervalMs);
+    h.intervalMs = Math.max(HOLD.minIntervalMs, h.intervalMs * HOLD.acceleration);
+  };
+  h.timer = setTimeout(repeat, HOLD.delayMs);
+  s.hold = h;
+});
+for (const [type, end] of [
+  ['pointerup', 'release'],
+  ['pointercancel', 'cancel'],
+  ['lostpointercapture', 'cancel'],
+]) {
+  doc.addEventListener(
+    type,
+    (e) => {
+      const b = stepperOf(e.target);
+      if (b) endHold(numberControl(b), end, e.pointerId);
+    },
+    true,
+  );
+}
+doc.addEventListener('contextmenu', (e) => {
+  const b = stepperOf(e.target);
+  if (!b) return;
+  const ctl = numberControl(b);
+  const s = numberState(ctl);
+  if (s.hold) {
+    cancelHold(ctl);
+    s.clickAfterHold = true;
+  }
+});
+doc.addEventListener('click', (e) => {
+  const t = e.target;
+  const b = stepperOf(t);
+  if (b) {
+    const ctl = numberControl(b);
+    const s = numberState(ctl);
+    const afterHold = s.clickAfterHold;
+    s.clickAfterHold = false;
+    numberParts(ctl).field?.focus();
+    if (afterHold && e.detail > 0) return;
+    if (b.hasAttribute('aria-disabled')) return;
+    stepNumber(ctl, stepDir(b));
+    return;
+  }
+  const clear = t instanceof Element ? t.closest('.astryx-number-input > [data-number-input-clear]') : null;
+  if (clear) {
+    const ctl = numberControl(clear);
+    endNumberDraft(ctl);
+    if (ctl.hasAttribute('data-clear')) emitNumber(ctl, null);
+    else renderNumber(ctl);
+    numberParts(ctl).field?.focus({ preventScroll: e.detail !== 0 });
+    return;
+  }
+  // Clicking the padding around a text or number field focuses it.
+  if (t instanceof Element && t.matches('.astryx-number-input, .astryx-text-input') && !t.hasAttribute('data-disabled')) {
+    t.querySelector(':scope > input:not([type="hidden"])')?.focus();
+  }
+});
+// Keep the clear button from taking focus away from the field.
+doc.addEventListener('mousedown', (e) => {
+  if (e.target instanceof Element && e.target.closest('.astryx-number-input > [data-number-input-clear]')) e.preventDefault();
+});
+
+/** Wire a NumberInput once: wheel stepping, and a hidden value Datastar (or a script) can set. */
+function wireNumber(ctl) {
+  const { field, hidden } = numberParts(ctl);
+  if (!field || !hidden) return;
+  if (!field._canonWheel) {
+    field._canonWheel = true;
+    field.addEventListener('wheel', numberWheel, { passive: false });
+  }
+  hidden._canonDefault ??= nativeValue.get.call(hidden);
+  hookValue(hidden, () => {
+    const s = numberState(ctl);
+    // A new value from outside replaces a rejected or kept draft.
+    if (s.rejection !== null || s.kept) endNumberDraft(ctl);
+    renderNumber(ctl);
+  });
+  renderNumber(ctl);
+}
+
+// Slider: values live in the hidden .astryx-slider-value inputs (one per thumb). Moving fires
+// input on them; the end of a drag or key press fires change.
+
+const THUMB = 20;
+const sliderOf = (t) => (t instanceof Element ? t.closest('.astryx-slider-control') : null);
+const sliderHiddens = (ctl) => [...ctl.parentElement.querySelectorAll(':scope > .astryx-slider-value')];
+const sliderThumbs = (ctl) => [...ctl.querySelectorAll(':scope > .astryx-slider-travel > .astryx-slider-thumb')];
+function sliderConfig(ctl) {
+  const d = ctl.dataset;
+  const min = Number(d.min ?? 0);
+  const max = Number(d.max ?? 100);
+  const step = Number(d.step ?? 1);
+  return { min, max, step, gap: Number(d.minGap ?? 0) * step, range: sliderHiddens(ctl).length > 1 };
+}
+const clampTo = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+function sliderValues(ctl) {
+  const { min, max } = sliderConfig(ctl);
+  return sliderHiddens(ctl).map((h) => {
+    const n = Number(nativeValue.get.call(h));
+    return clampTo(Number.isFinite(n) ? n : min, min, max);
+  });
+}
+function decimalPrecision(n) {
+  if (Math.abs(n) < 1) {
+    const parts = n.toExponential().split('e-');
+    if (parts.length === 2) return (parts[0].split('.')[1]?.length ?? 0) + parseInt(parts[1], 10);
+  }
+  return String(n).split('.')[1]?.length ?? 0;
+}
+function snapToStep(ctl, v) {
+  const { min, step } = sliderConfig(ctl);
+  if (step <= 0) return v;
+  const snapped = min + Math.round((v - min) / step) * step;
+  return Number(snapped.toFixed(Math.min(Math.max(decimalPrecision(min), decimalPrecision(step)), 20)));
+}
+function sliderConstrained(ctl, index, raw, snap = true, from = sliderValues(ctl)) {
+  const { min, max, gap, range } = sliderConfig(ctl);
+  const v = clampTo(snap ? snapToStep(ctl, raw) : raw, min, max);
+  if (!range) return [v];
+  const next = [...from];
+  next[index] = v;
+  if (index === 0) next[0] = Math.min(next[0], next[1] - gap);
+  else next[1] = Math.max(next[1], next[0] + gap);
+  return [clampTo(next[0], min, max), clampTo(next[1], min, max)];
+}
+const sliderText = (ctl, v) => formatNumber(ctl, v) ?? String(v);
+
+function renderSlider(ctl) {
+  const { min, max, gap, range } = sliderConfig(ctl);
+  const values = sliderValues(ctl);
+  const percent = (v) => (max === min ? 0 : ((v - min) / (max - min)) * 100);
+  const thumbs = sliderThumbs(ctl);
+  const formatted = ctl.dataset.format !== undefined;
+  thumbs.forEach((thumb, i) => {
+    const v = values[i];
+    if (v === undefined) return;
+    const progress = String(percent(v) / 100);
+    thumb.style.setProperty('--_slider-progress', progress);
+    thumb.setAttribute('aria-valuenow', String(v));
+    if (range) {
+      if (i === 1) thumb.setAttribute('aria-valuemin', String(clampTo(values[0] + gap, min, max)));
+      else thumb.setAttribute('aria-valuemax', String(clampTo(values[1] - gap, min, max)));
+    }
+    if (formatted) thumb.setAttribute('aria-valuetext', sliderText(ctl, v));
+    const anchor = thumb.previousElementSibling?.matches('.astryx-slider-anchor') ? thumb.previousElementSibling : null;
+    if (anchor) {
+      anchor.style.setProperty('--_slider-progress', progress);
+      const tip = anchor.firstElementChild;
+      const t = sliderText(ctl, v);
+      if (tip && tip.textContent !== t) tip.textContent = t;
+    }
+  });
+  const start = range ? percent(values[0]) / 100 : 0;
+  const end = percent(values[values.length - 1]) / 100;
+  for (const el of ctl.querySelectorAll('.astryx-slider-fill-mover, .astryx-slider-fill')) {
+    el.style.setProperty('--_slider-fill-start', String(start));
+    if (el.matches('.astryx-slider-fill')) el.style.setProperty('--_slider-fill-end', String(end));
+  }
+  for (const mark of ctl.querySelectorAll('.astryx-slider-mark')) {
+    const m = Number(mark.dataset.markValue);
+    mark.toggleAttribute('data-filled', range ? m >= values[0] && m <= values[1] : m <= values[0]);
+  }
+  const text = ctl.parentElement.querySelector(':scope > .astryx-slider-text');
+  if (text) {
+    const t = range ? `${sliderText(ctl, values[0])} – ${sliderText(ctl, values[1])}` : sliderText(ctl, values[0]);
+    if (text.textContent !== t) text.textContent = t;
+  }
+}
+
+function emitSlider(ctl, next, end = false) {
+  const hiddens = sliderHiddens(ctl);
+  const before = sliderValues(ctl);
+  hiddens.forEach((h, i) => nativeValue.set.call(h, String(next[i])));
+  renderSlider(ctl);
+  hiddens.forEach((h, i) => {
+    if (next[i] !== before[i]) h.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  if (end) for (const h of hiddens) h.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function endSlider(ctl) {
+  for (const h of sliderHiddens(ctl)) h.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function sliderFromPosition(ctl, x, y) {
+  const { min, max } = sliderConfig(ctl);
+  const rect = ctl.getBoundingClientRect();
+  const fraction = (offset, size) => {
+    const travel = size - THUMB;
+    return travel > 0 ? (offset - THUMB / 2) / travel : size > 0 ? offset / size : 0;
+  };
+  const rtl = getComputedStyle(ctl).direction === 'rtl';
+  let p =
+    ctl.dataset.orientation !== 'vertical'
+      ? fraction(rtl ? rect.right - x : x - rect.left, rect.width)
+      : 1 - fraction(y - rect.top, rect.height);
+  p = clampTo(p, 0, 1);
+  return clampTo(snapToStep(ctl, min + p * (max - min)), min, max);
+}
+
+const sliderDrags = new WeakMap();
+function sliderUpdate(ctl, index, raw, snap = true, from) {
+  if (ctl.hasAttribute('data-disabled')) return;
+  emitSlider(ctl, sliderConstrained(ctl, index, raw, snap, from));
+}
+function setDragging(ctl, index) {
+  sliderThumbs(ctl).forEach((t, i) => t.toggleAttribute('data-pressed', i === index));
+  ctl.toggleAttribute('data-dragging', index !== null);
+}
+
+doc.addEventListener('pointerdown', (e) => {
+  const ctl = sliderOf(e.target);
+  if (!ctl || ctl.hasAttribute('data-disabled') || e.button !== 0 || e.ctrlKey) return;
+  e.preventDefault();
+  if (sliderDrags.has(ctl)) return;
+  const values = sliderValues(ctl);
+  const { range } = sliderConfig(ctl);
+  const thumbs = sliderThumbs(ctl);
+  const pressed = e.target.closest('[role="slider"]');
+  const markEl = e.target.closest('[data-mark-value]');
+  const newVal = markEl ? Number(markEl.dataset.markValue) : sliderFromPosition(ctl, e.clientX, e.clientY);
+  const pressedIndex = pressed ? thumbs.indexOf(pressed) : -1;
+  const coincident = range && values[0] === values[1];
+  const closest = !range ? 0 : Math.abs(newVal - values[0]) <= Math.abs(newVal - values[1]) ? 0 : 1;
+  let index = pressedIndex >= 0 ? pressedIndex : closest;
+  // Two thumbs on one spot: the first move decides which one is dragged.
+  const parks = coincident && (pressedIndex >= 0 || newVal === values[0]);
+  if (parks && pressedIndex < 0) index = 1;
+  if (coincident && !parks) index = newVal > values[0] ? 1 : 0;
+  const drag = { pointer: e.pointerId, index, press: parks ? sliderFromPosition(ctl, e.clientX, e.clientY) : null, origin: parks };
+  sliderDrags.set(ctl, drag);
+  setDragging(ctl, index);
+  // Pressing a thumb doesn't move it; pressing the track jumps the nearest thumb there.
+  if (pressedIndex < 0) sliderUpdate(ctl, index, parks ? values[index] : newVal);
+  thumbs[index]?.focus();
+  ctl.setPointerCapture?.(e.pointerId);
+});
+doc.addEventListener('pointermove', (e) => {
+  const ctl = sliderOf(e.target);
+  const drag = ctl && sliderDrags.get(ctl);
+  if (!drag || e.pointerId !== drag.pointer || ctl.hasAttribute('data-disabled')) return;
+  const newVal = sliderFromPosition(ctl, e.clientX, e.clientY);
+  const handTo = (index) => {
+    if (index === drag.index) return;
+    drag.index = index;
+    setDragging(ctl, index);
+    sliderThumbs(ctl)[index]?.focus();
+  };
+  if (drag.press !== null) {
+    if (newVal === drag.press) return;
+    const pressValue = drag.press;
+    drag.press = null;
+    handTo(newVal > pressValue ? 1 : 0);
+  } else if (drag.origin) {
+    const values = sliderValues(ctl);
+    const dragging = drag.index;
+    const other = dragging === 0 ? 1 : 0;
+    if ((dragging === 0 && newVal > values[1]) || (dragging === 1 && newVal < values[0])) {
+      const from = [...values];
+      from[dragging] = values[other];
+      handTo(other);
+      sliderUpdate(ctl, other, newVal, true, from);
+      return;
+    }
+  }
+  sliderUpdate(ctl, drag.index, newVal);
+});
+for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  doc.addEventListener(
+    type,
+    (e) => {
+      const ctl = sliderOf(e.target);
+      const drag = ctl && sliderDrags.get(ctl);
+      if (!drag || e.pointerId !== drag.pointer) return;
+      sliderDrags.delete(ctl);
+      setDragging(ctl, null);
+      endSlider(ctl);
+    },
+    true,
+  );
+}
+
+/** The `count`-th grid point from `current` in `direction`. */
+function gridStep(ctl, current, direction, count) {
+  const { min, step } = sliderConfig(ctl);
+  if (step <= 0) return current + direction * count;
+  const position = (current - min) / step;
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(position)) * 4;
+  const base = direction === 1 ? Math.floor(position + tolerance) : Math.ceil(position - tolerance);
+  return min + (base + direction * count) * step;
+}
+doc.addEventListener('keydown', (e) => {
+  const thumb = e.target instanceof Element && e.target.matches('.astryx-slider-thumb') ? e.target : null;
+  const ctl = thumb && sliderOf(thumb);
+  if (!ctl || ctl.hasAttribute('data-disabled') || e.defaultPrevented) return;
+  const index = sliderThumbs(ctl).indexOf(thumb);
+  const current = sliderValues(ctl)[index];
+  const { min, max } = sliderConfig(ctl);
+  const rtl = getComputedStyle(ctl).direction === 'rtl';
+  const towardMax = ctl.dataset.orientation !== 'vertical' && rtl ? 'ArrowLeft' : 'ArrowRight';
+  const towardMin = towardMax === 'ArrowLeft' ? 'ArrowRight' : 'ArrowLeft';
+  let next;
+  switch (e.key) {
+    case towardMax:
+    case 'ArrowUp':
+      next = gridStep(ctl, current, 1, 1);
+      break;
+    case towardMin:
+    case 'ArrowDown':
+      next = gridStep(ctl, current, -1, 1);
+      break;
+    case 'PageUp':
+      next = gridStep(ctl, current, 1, 10);
+      break;
+    case 'PageDown':
+      next = gridStep(ctl, current, -1, 10);
+      break;
+    case 'Home':
+      next = min;
+      break;
+    case 'End':
+      next = max;
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+  emitSlider(ctl, sliderConstrained(ctl, index, next, e.key !== 'Home' && e.key !== 'End'), true);
+});
+
+/**
+ * Hook a control's property so a value set from outside (Datastar's data-bind, a script)
+ * calls `render`. Such writes fire no event and no mutation, so nothing else would notice.
+ */
+function hookProperty(el, name, render) {
+  if (Object.hasOwn(el, name)) return;
+  let proto = Object.getPrototypeOf(el);
+  while (proto && !Object.hasOwn(proto, name)) proto = Object.getPrototypeOf(proto);
+  const native = proto && Object.getOwnPropertyDescriptor(proto, name);
+  if (!native?.set) return;
+  Object.defineProperty(el, name, {
+    configurable: true,
+    get: () => native.get.call(el),
+    set: (v) => {
+      const before = native.get.call(el);
+      native.set.call(el, v);
+      if (native.get.call(el) !== before) render();
+    },
+  });
+}
+const hookValue = (input, render) => hookProperty(input, 'value', render);
+function wireSlider(ctl) {
+  for (const h of sliderHiddens(ctl)) {
+    h._canonDefault ??= nativeValue.get.call(h);
+    hookValue(h, () => renderSlider(ctl));
+  }
+  if (ctl.dataset.format !== undefined || !ctl._canonRendered) {
+    ctl._canonRendered = true;
+    renderSlider(ctl);
+  }
+}
+
+// FileInput: the hidden trigger button is the keyboard and screen reader control, the box a
+// mouse and drop target. Accepted files stay on the native input, so forms and data-bind see them.
+
+const fileBox = (t) => (t instanceof Element ? t.closest('.astryx-file-input') : null);
+const fileNative = (box) => box.querySelector(':scope > .astryx-file-input-native');
+const fileBlocked = (box) => box.hasAttribute('data-disabled') || box.hasAttribute('data-busy');
+const listFormat = new Intl.ListFormat('en', { type: 'conjunction' });
+const sizeFormat = new Intl.NumberFormat('en', { maximumFractionDigits: 1, minimumFractionDigits: 1, useGrouping: false });
+function formatFileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${sizeFormat.format(bytes / 1024)} KB`;
+  return `${sizeFormat.format(bytes / (1024 * 1024))} MB`;
+}
+
+function validateFiles(box, list) {
+  const input = fileNative(box);
+  const accept = input?.getAttribute('accept');
+  const maxSize = optNumber(box.dataset.maxSize);
+  const maxFiles = optNumber(box.dataset.maxFiles);
+  const errors = [];
+  let valid = list;
+  if (accept) {
+    const types = accept.split(',').map((s) => s.trim().toLowerCase());
+    valid = valid.filter((file) => {
+      const ok = types.some((type) =>
+        type.startsWith('.')
+          ? file.name.toLowerCase().endsWith(type)
+          : type.endsWith('/*')
+            ? file.type.startsWith(type.slice(0, -1))
+            : file.type.toLowerCase() === type,
+      );
+      if (!ok) errors.push(`"${file.name}" is not an accepted file type`);
+      return ok;
+    });
+  }
+  if (maxSize != null) {
+    valid = valid.filter((file) => {
+      if (file.size > maxSize) {
+        errors.push(`"${file.name}" exceeds ${formatFileSize(maxSize)} limit`);
+        return false;
+      }
+      return true;
+    });
+  }
+  if (input?.multiple && maxFiles != null && valid.length > maxFiles) {
+    errors.push(`Maximum ${maxFiles} files allowed`);
+    valid = valid.slice(0, maxFiles);
+  }
+  if (!input?.multiple) valid = valid.slice(0, 1);
+  return { valid, errors };
+}
+
+/** Show the native input's files, and a validation error (null clears it). */
+function renderFiles(box, error) {
+  const input = fileNative(box);
+  if (!input) return;
+  const files = [...(input.files ?? [])];
+  const names = files.map((f) => f.name).join(', ');
+  box.toggleAttribute('data-has-files', files.length > 0);
+  const name = box.querySelector(':scope > .astryx-file-input-name');
+  if (name && name.textContent !== names) name.textContent = names;
+  const trigger = box.querySelector('.astryx-file-input-trigger');
+  const label = box.dataset.label ?? '';
+  trigger?.setAttribute('aria-label', files.length ? `${label}, ${names}` : label);
+  if (error === undefined) return;
+  box.toggleAttribute('data-invalid', error !== null);
+  const status = doc.getElementById(`${input.id}-error`);
+  if (status) {
+    status.hidden = error === null;
+    const target = status.querySelector('.astryx-field-status-content > span:last-child') ?? status;
+    target.textContent = error ?? '';
+    if (trigger) {
+      const ids = (trigger.getAttribute('aria-describedby') ?? '').split(/\s+/).filter((x) => x && x !== status.id);
+      if (error !== null) ids.push(status.id);
+      setIDs(trigger, 'aria-describedby', ids);
+    }
+  }
+}
+
+function setFiles(input, files) {
+  try {
+    const dt = new DataTransfer();
+    for (const f of files) dt.items.add(f);
+    input.files = dt.files;
+  } catch {
+    input.value = '';
+  }
+}
+
+/** Validate a new selection onto the native input; true when the input's files changed. */
+function takeFiles(box, list) {
+  const input = fileNative(box);
+  if (!input || fileBlocked(box)) return;
+  const { valid, errors } = validateFiles(box, list);
+  setFiles(input, valid);
+  renderFiles(box, errors.length > 0 ? listFormat.format(errors) : null);
+  const live = box.parentElement?.querySelector(':scope > .astryx-file-input-live');
+  if (live && errors.length === 0 && valid.length > 0) {
+    live.textContent = valid.length === 1 ? `1 file selected: ${valid[0].name}` : `${valid.length} files selected`;
+  }
+}
+
+// Capture phase: validate before data-bind (or any change listener on the input) reads it.
+doc.addEventListener(
+  'change',
+  (e) => {
+    const input = e.target;
+    if (!(input instanceof HTMLInputElement) || !input.matches('.astryx-file-input-native')) return;
+    if (input._canonTaken) return;
+    takeFiles(fileBox(input), [...(input.files ?? [])]);
+  },
+  true,
+);
+doc.addEventListener('click', (e) => {
+  const t = e.target;
+  const box = fileBox(t);
+  if (!box) return;
+  if (t.closest('[data-file-input-clear]')) {
+    e.stopPropagation();
+    const input = fileNative(box);
+    if (!input) return;
+    input.value = '';
+    renderFiles(box, null);
+    input._canonTaken = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input._canonTaken = false;
+    const trigger = box.querySelector('.astryx-file-input-trigger');
+    if (e.detail === 0) trigger?.focus();
+    else requestAnimationFrame(() => trigger?.focus({ preventScroll: true }));
+    return;
+  }
+  if (t.matches('.astryx-file-input-native')) {
+    if (fileBlocked(box)) e.preventDefault();
+    return;
+  }
+  if (fileBlocked(box)) return;
+  if (t.closest('button') && !t.closest('.astryx-file-input-trigger')) return;
+  fileNative(box)?.click();
+});
+doc.addEventListener('mousedown', (e) => {
+  if (e.target instanceof Element && e.target.closest('.astryx-file-input [data-file-input-clear]')) e.preventDefault();
+});
+for (const type of ['dragenter', 'dragover']) {
+  doc.addEventListener(type, (e) => {
+    const box = fileBox(e.target);
+    if (!box || box.dataset.mode !== 'dropzone') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (fileBlocked(box)) {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+    } else if (!box.hasAttribute('data-drag-over')) {
+      box.setAttribute('data-drag-over', '');
+      const ph = box.querySelector(':scope > .astryx-file-input-placeholder');
+      if (ph) {
+        ph._canonText ??= ph.textContent;
+        ph.textContent = 'Drop files here';
+      }
+    }
+  });
+}
+function leaveDrop(box) {
+  box.removeAttribute('data-drag-over');
+  const ph = box.querySelector(':scope > .astryx-file-input-placeholder');
+  if (ph?._canonText != null) ph.textContent = ph._canonText;
+}
+doc.addEventListener('dragleave', (e) => {
+  const box = fileBox(e.target);
+  if (!box || box.dataset.mode !== 'dropzone') return;
+  e.preventDefault();
+  if (e.relatedTarget instanceof Node && box.contains(e.relatedTarget)) return;
+  leaveDrop(box);
+});
+doc.addEventListener('drop', (e) => {
+  const box = fileBox(e.target);
+  if (!box || box.dataset.mode !== 'dropzone') return;
+  e.preventDefault();
+  e.stopPropagation();
+  leaveDrop(box);
+  if (fileBlocked(box)) return;
+  const list = [...(e.dataTransfer?.files ?? [])];
+  if (list.length === 0) return;
+  takeFiles(box, list);
+  const input = fileNative(box);
+  input._canonTaken = true;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  input._canonTaken = false;
+});
+
+// ---------------------------------------------------------------------------------------------
 // Wiring markup as it appears (initial page and Datastar patches).
 
 function popoverTrigger(anchor) {
@@ -1332,6 +2364,17 @@ function scan() {
   checkImages();
   if (isApple) for (const k of doc.querySelectorAll('.astryx-kbd[data-keys]')) fixKbd(k);
   for (const t of doc.querySelectorAll('time.astryx-timestamp-time')) renderTime(t);
+  for (const ta of doc.querySelectorAll('.astryx-text-area-control[data-max-length]')) {
+    hookValue(ta, () => countTextArea(ta));
+    countTextArea(ta);
+  }
+  for (const g of doc.querySelectorAll('.astryx-checkbox-list-group')) {
+    for (const b of g.querySelectorAll('input[type="checkbox"]')) hookProperty(b, 'checked', () => syncRequired(g));
+    syncRequired(g);
+  }
+  for (const n of doc.querySelectorAll('.astryx-number-input')) wireNumber(n);
+  for (const s of doc.querySelectorAll('.astryx-slider-control')) wireSlider(s);
+  for (const f of doc.querySelectorAll('.astryx-file-input')) renderFiles(f);
 }
 
 let scanQueued = false;
