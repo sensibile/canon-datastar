@@ -2632,6 +2632,12 @@ fn selector_fixtures() {
         size: s("sm"),
         ..Default::default()
     };
+    let gd = InputGroupProps {
+        id: s("grpd"),
+        label: s("Group"),
+        is_disabled: true,
+        ..Default::default()
+    };
     check(
         "selector",
         vec![
@@ -2720,8 +2726,23 @@ fn selector_fixtures() {
                     selector(&SelectorProps {
                         id: s("gs"),
                         label: s("Unit"),
-                        options: opts,
+                        options: opts.clone(),
                         group: g.member(),
+                        ..Default::default()
+                    }),
+                ),
+            ),
+            (
+                "group-disabled",
+                input_group(
+                    &gd,
+                    selector(&SelectorProps {
+                        id: s("gd"),
+                        label: s("Unit"),
+                        options: opts,
+                        value: s("a"),
+                        name: s("unit"),
+                        group: gd.member(),
                         ..Default::default()
                     }),
                 ),
@@ -2755,6 +2776,12 @@ fn multi_selector_fixtures() {
     let g = InputGroupProps {
         id: s("grp"),
         label: s("Group"),
+        ..Default::default()
+    };
+    let gd = InputGroupProps {
+        id: s("grpd"),
+        label: s("Group"),
+        is_disabled: true,
         ..Default::default()
     };
     check(
@@ -2841,8 +2868,23 @@ fn multi_selector_fixtures() {
                     multi_selector(&MultiSelectorProps {
                         id: s("gm"),
                         label: s("Unit"),
-                        options: opts,
+                        options: opts.clone(),
                         group: g.member(),
+                        ..Default::default()
+                    }),
+                ),
+            ),
+            (
+                "group-disabled",
+                input_group(
+                    &gd,
+                    multi_selector(&MultiSelectorProps {
+                        id: s("gmd"),
+                        label: s("Unit"),
+                        options: opts,
+                        value: vals(&["a"]),
+                        name: s("units"),
+                        group: gd.member(),
                         ..Default::default()
                     }),
                 ),

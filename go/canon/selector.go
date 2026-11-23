@@ -121,6 +121,8 @@ func Selector(p SelectorProps) templ.Component {
 		}
 	}
 	placeholder := or(p.Placeholder, "Select…")
+	// A disabled group disables its members: no name, so nothing is submitted.
+	disabled := p.IsDisabled || (p.Group != nil && p.Group.IsDisabled)
 	return selectorShell(p, shellParts{
 		class:    "astryx-selector astryx-selector-control",
 		hasValue: selected != nil,
@@ -145,8 +147,8 @@ func Selector(p SelectorProps) templ.Component {
 		},
 		value: void("input", newAttrs().set("type", "hidden").
 			set("class", "astryx-selector-value").
-			when(!p.IsDisabled && p.Name != "", "name", p.Name).
-			when(!p.IsDisabled && p.Form != "", "form", p.Form).
+			when(!disabled && p.Name != "", "name", p.Name).
+			when(!disabled && p.Form != "", "form", p.Form).
 			set("value", p.Value).
 			extra(p.ValueAttrs)),
 		listbox: func(ids selectorIDSet, size string) templ.Component {

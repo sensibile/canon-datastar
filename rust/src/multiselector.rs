@@ -144,6 +144,22 @@ pub fn multi_selector(p: &MultiSelectorProps) -> Markup {
         "unchecked"
     };
     let indicator = or(&p.indicator_position, "start");
+    // A disabled group disables its members: no name, so nothing is submitted.
+    let disabled = p.is_disabled || p.group.as_ref().is_some_and(|g| g.is_disabled);
+    // Values not among the options (e.g. created ones) get rows too, so they can be unselected.
+    let mut options = p.options.clone();
+    for v in &p.value {
+        if !all.iter().any(|o| &o.value == v)
+            && !options
+                .iter()
+                .any(|o| !o.is_divider && !o.is_section && &o.value == v)
+        {
+            options.push(SelectorOption {
+                value: v.clone(),
+                ..Default::default()
+            });
+        }
+    }
     let shell = SelectorProps {
         id: p.id.clone(),
         label: p.label.clone(),
@@ -222,8 +238,8 @@ pub fn multi_selector(p: &MultiSelectorProps) -> Markup {
             .flag("hidden", true)
             .set("tabindex", "-1")
             .set("aria-hidden", "true")
-            .when(!p.is_disabled && !p.name.is_empty(), "name", &p.name)
-            .when(!p.is_disabled && !p.form.is_empty(), "form", &p.form)
+            .when(!disabled && !p.name.is_empty(), "name", &p.name)
+            .when(!disabled && !p.form.is_empty(), "form", &p.form)
             .extra(&p.value_attrs),
         select_opts,
     );
@@ -268,7 +284,7 @@ pub fn multi_selector(p: &MultiSelectorProps) -> Markup {
             ids,
             &p.label,
             lead,
-            &p.options,
+            &options,
             size,
             indicator,
             &|o: &SelectorOption| chosen.contains(o.value.as_str()),

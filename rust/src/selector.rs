@@ -186,6 +186,8 @@ pub fn selector(p: &SelectorProps) -> Markup {
         .find(|o| !p.value.is_empty() && o.value == p.value)
         .copied();
     let placeholder = or(&p.placeholder, "Select…");
+    // A disabled group disables its members: no name, so nothing is submitted.
+    let disabled = p.is_disabled || p.group.as_ref().is_some_and(|g| g.is_disabled);
     selector_shell(
         p,
         ShellParts {
@@ -223,8 +225,8 @@ pub fn selector(p: &SelectorProps) -> Markup {
                 attrs()
                     .set("type", "hidden")
                     .set("class", "astryx-selector-value")
-                    .when(!p.is_disabled && !p.name.is_empty(), "name", &p.name)
-                    .when(!p.is_disabled && !p.form.is_empty(), "form", &p.form)
+                    .when(!disabled && !p.name.is_empty(), "name", &p.name)
+                    .when(!disabled && !p.form.is_empty(), "form", &p.form)
                     .set("value", &p.value)
                     .extra(&p.value_attrs),
             ),

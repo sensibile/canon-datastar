@@ -138,6 +138,16 @@ func MultiSelector(p MultiSelectorProps) templ.Component {
 		selectAllState = "indeterminate"
 	}
 	indicator := or(p.IndicatorPosition, "start")
+	// A disabled group disables its members: no name, so nothing is submitted.
+	disabled := p.IsDisabled || (p.Group != nil && p.Group.IsDisabled)
+	// Values not among Options (e.g. created ones) get rows too, so they can be unselected.
+	options := p.Options
+	for _, v := range p.Value {
+		if _, ok := labelOf[v]; !ok {
+			labelOf[v] = v
+			options = append(options[:len(options):len(options)], SelectorOption{Value: v})
+		}
+	}
 	return selectorShell(SelectorProps{ID: p.ID, Label: p.Label, IsLabelHidden: p.IsLabelHidden,
 		Description: p.Description, IsOptional: p.IsOptional, IsRequired: p.IsRequired, IsDisabled: p.IsDisabled,
 		IsReadOnly: p.IsReadOnly, IsLoading: p.IsLoading, Size: p.Size, Variant: p.Variant, Status: p.Status,
@@ -173,8 +183,8 @@ func MultiSelector(p MultiSelectorProps) templ.Component {
 			flag("hidden", true).
 			set("tabindex", "-1").
 			set("aria-hidden", "true").
-			when(!p.IsDisabled && p.Name != "", "name", p.Name).
-			when(!p.IsDisabled && p.Form != "", "form", p.Form).
+			when(!disabled && p.Name != "", "name", p.Name).
+			when(!disabled && p.Form != "", "form", p.Form).
 			extra(p.ValueAttrs), selectOpts...),
 		listbox: func(ids selectorIDSet, size string) templ.Component {
 			var lead []templ.Component
@@ -194,7 +204,7 @@ func MultiSelector(p MultiSelectorProps) templ.Component {
 				lead = append(lead, selectorRow(ids.listbox+"-select-all", SelectorOption{Label: selectAllLabel},
 					size, indicator, allOn, "checkbox", extra...))
 			}
-			return selectorListbox(ids, p.Label, lead, p.Options, size, indicator,
+			return selectorListbox(ids, p.Label, lead, options, size, indicator,
 				func(o SelectorOption) bool { return chosen[o.Value] },
 				or(p.EmptyText, "No options"), or(p.EmptySearchText, "No results found"), "checkbox")
 		},

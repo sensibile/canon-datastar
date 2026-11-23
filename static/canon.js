@@ -2634,6 +2634,30 @@ function selSetValues(ctl, values) {
   if (changed) selChanged(ctl);
 }
 
+/** Give a created value its own checkbox row (built from the create row) at the end of the list,
+ * so it can be unselected and isn't offered for creation again. */
+function selAddRow(ctl, createRow, value) {
+  const { listbox } = selParts(ctl);
+  if (!listbox || selOptionRows(ctl).some((r) => r.dataset.value === value)) return;
+  const row = createRow.cloneNode(true);
+  row.id = `${listbox.id}-option-${selOptionRows(ctl).length}`;
+  for (const a of ['data-create', 'data-query', 'hidden', 'data-highlighted', 'data-keyboard']) row.removeAttribute(a);
+  row.dataset.value = value;
+  row.dataset.mark = 'checkbox';
+  row.setAttribute('aria-selected', 'false');
+  const label = row.querySelector('.astryx-selector-option-label');
+  if (label) label.textContent = value;
+  const mark = doc.createElement('span');
+  mark.className = 'astryx-selector-option-mark';
+  mark.innerHTML =
+    '<span class="astryx-checkbox-indicator" data-size="sm" aria-hidden="true"><svg viewBox="0 0 10 10" class="astryx-checkbox-indicator-check"><path d="M8.5 2.5L4 7.5L1.5 5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="astryx-checkbox-indicator-dash"></span></span>';
+  // The checkbox goes on the same side as on the other rows.
+  const sample = listbox.querySelector('[data-mark="checkbox"]');
+  if (sample && sample.lastElementChild?.classList.contains('astryx-selector-option-mark')) row.append(mark);
+  else row.prepend(mark);
+  listbox.append(row);
+}
+
 /** Toggle a row of a MultiSelector: an option, "Select all" or "Create". The list stays open. */
 function selToggle(ctl, row) {
   const { hidden, search } = selParts(ctl);
@@ -2648,6 +2672,7 @@ function selToggle(ctl, row) {
       hidden.append(opt);
       hookProperty(opt, 'selected', () => renderMultiSelector(ctl));
     }
+    selAddRow(ctl, row, query);
     if (!opt.selected) {
       opt.selected = true;
       selChanged(ctl);
@@ -2655,7 +2680,7 @@ function selToggle(ctl, row) {
     ctl.dispatchEvent(new CustomEvent('astryx-create', { bubbles: true, detail: { query } }));
     if (search) {
       search.value = '';
-      search.parentElement?.querySelector('.astryx-selector-search-clear')?.toggleAttribute('hidden', true);
+      selSyncSearchClear(search);
       selFilter(ctl, '');
     }
     selAnnounce(ctl, `${query} created`);
@@ -2835,6 +2860,7 @@ doc.addEventListener('keydown', (e) => {
       if (open || openSelector(ctl, 'none')) {
         search.value += e.key;
         selFilter(ctl, search.value);
+        selSyncSearchClear(search);
       }
     }
   } else if (t.matches('.astryx-selector-search')) {
@@ -2874,9 +2900,14 @@ doc.addEventListener('input', (e) => {
   const ctl = selFromPopup(t);
   if (!ctl) return;
   selFilter(ctl, t.value);
-  const clear = t.parentElement?.querySelector('.astryx-selector-search-clear');
-  if (clear) clear.hidden = t.value === '';
+  selSyncSearchClear(t);
 });
+
+/** Show the search field's clear button while it holds text. */
+function selSyncSearchClear(search) {
+  const clear = search.parentElement?.querySelector('.astryx-selector-search-clear');
+  if (clear && clear.hidden !== (search.value === '')) clear.hidden = search.value === '';
+}
 
 // A press on a row, the clear button or the search clear must not move focus off the combobox.
 doc.addEventListener('mousedown', (e) => {

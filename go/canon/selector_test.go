@@ -15,6 +15,7 @@ func TestSelectorFixtures(t *testing.T) {
 		{Value: "z", Label: "Zed"},
 	}
 	g := InputGroupProps{ID: "grp", Label: "Group", Size: "sm"}
+	gd := InputGroupProps{ID: "grpd", Label: "Group", IsDisabled: true}
 	checkFixtures(t, "selector", []fixture{
 		{"default", Selector(SelectorProps{Label: "Fruit", Options: opts})},
 		{"full", Selector(SelectorProps{ID: "f", Label: "Fruit", Options: opts, Value: "a", HasClear: true,
@@ -29,6 +30,8 @@ func TestSelectorFixtures(t *testing.T) {
 		{"disabled-empty", Selector(SelectorProps{ID: "d", Label: "Off", IsDisabled: true, Name: "off", Variant: "ghost",
 			Status: &FieldStatus{Type: "error"}})},
 		{"group", inputGroup(g, Selector(SelectorProps{ID: "gs", Label: "Unit", Options: opts, Group: g.Member()}))},
+		{"group-disabled", inputGroup(gd, Selector(SelectorProps{ID: "gd", Label: "Unit", Options: opts, Value: "a", Name: "unit",
+			Group: gd.Member()}))},
 	})
 }
 
@@ -41,6 +44,7 @@ func TestMultiSelectorFixtures(t *testing.T) {
 		SelectorSection("More", SelectorOption{Value: "d", Label: "Date"}, SelectorOption{Value: "e", Label: "Elder"}),
 	}
 	g := InputGroupProps{ID: "grp", Label: "Group"}
+	gd := InputGroupProps{ID: "grpd", Label: "Group", IsDisabled: true}
 	checkFixtures(t, "multiselector", []fixture{
 		{"default", MultiSelector(MultiSelectorProps{Label: "Fruit", Options: opts})},
 		{"labels", MultiSelector(MultiSelectorProps{ID: "m", Label: "Fruit", Options: opts, Value: []string{"a", "b", "d", "zz"},
@@ -55,5 +59,7 @@ func TestMultiSelectorFixtures(t *testing.T) {
 		{"disabled", MultiSelector(MultiSelectorProps{ID: "d", Label: "Off", Options: opts, Value: []string{"a"}, IsDisabled: true,
 			Name: "off", TriggerDisplay: "badges"})},
 		{"group", inputGroup(g, MultiSelector(MultiSelectorProps{ID: "gm", Label: "Unit", Options: opts, Group: g.Member()}))},
+		{"group-disabled", inputGroup(gd, MultiSelector(MultiSelectorProps{ID: "gmd", Label: "Unit", Options: opts, Value: []string{"a"},
+			Name: "units", Group: gd.Member()}))},
 	})
 }
