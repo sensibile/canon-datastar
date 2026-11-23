@@ -31,3 +31,29 @@ func TestSelectorFixtures(t *testing.T) {
 		{"group", inputGroup(g, Selector(SelectorProps{ID: "gs", Label: "Unit", Options: opts, Group: g.Member()}))},
 	})
 }
+
+func TestMultiSelectorFixtures(t *testing.T) {
+	opts := []SelectorOption{
+		{Value: "a", Label: "Apple", Description: "Crisp"},
+		{Value: "b", Label: "Banana"},
+		{Value: "c", Label: "Cherry", IsDisabled: true},
+		SelectorDivider(),
+		SelectorSection("More", SelectorOption{Value: "d", Label: "Date"}, SelectorOption{Value: "e", Label: "Elder"}),
+	}
+	g := InputGroupProps{ID: "grp", Label: "Group"}
+	checkFixtures(t, "multiselector", []fixture{
+		{"default", MultiSelector(MultiSelectorProps{Label: "Fruit", Options: opts})},
+		{"labels", MultiSelector(MultiSelectorProps{ID: "m", Label: "Fruit", Options: opts, Value: []string{"a", "b", "d", "zz"},
+			TriggerDisplay: "labels", HasClear: true, HasSelectAll: true, SelectAllLabel: "All", Name: "fruit", Form: "frm",
+			ValueAttrs: []Attr{{"data-bind:fruits", ""}}, IndicatorPosition: "end", Size: "sm", IsRequired: true,
+			Description: "Pick some", Status: &FieldStatus{Type: "error", Message: "Bad"}})},
+		{"badges", MultiSelector(MultiSelectorProps{ID: "b", Label: "Tags", Options: opts, Value: []string{"a", "b", "d", "e"},
+			TriggerDisplay: "badges", MaxBadges: 2, HasSearch: true, HasCreate: true, HasSelectAll: true, StartIcon: "search",
+			Variant: "secondary", Placeholder: "Any"})},
+		{"count-all", MultiSelector(MultiSelectorProps{ID: "c", Label: "Count", Options: opts, Value: []string{"a", "b", "d", "e"},
+			HasSelectAll: true, IsReadOnly: true, HasClear: true})},
+		{"disabled", MultiSelector(MultiSelectorProps{ID: "d", Label: "Off", Options: opts, Value: []string{"a"}, IsDisabled: true,
+			Name: "off", TriggerDisplay: "badges"})},
+		{"group", inputGroup(g, MultiSelector(MultiSelectorProps{ID: "gm", Label: "Unit", Options: opts, Group: g.Member()}))},
+	})
+}

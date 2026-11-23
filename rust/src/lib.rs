@@ -26,6 +26,7 @@ mod link;
 mod menu;
 mod metadata;
 mod misc;
+mod multiselector;
 mod popover;
 mod progress;
 mod selector;
@@ -79,6 +80,7 @@ pub use misc::{
     BadgeProps, DividerProps, SpinnerProps, StackProps, VisuallyHiddenProps, badge, divider,
     hstack, spinner, stack, visually_hidden, vstack,
 };
+pub use multiselector::{MultiSelectorProps, multi_selector};
 pub use popover::{PopoverProps, popover};
 pub use progress::{ProgressBarMark, ProgressBarProps, progress_bar};
 pub use selector::{SelectorOption, SelectorProps, selector, selector_divider, selector_section};

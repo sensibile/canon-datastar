@@ -2729,3 +2729,124 @@ fn selector_fixtures() {
         ],
     );
 }
+
+#[test]
+fn multi_selector_fixtures() {
+    let opts = vec![
+        SelectorOption {
+            description: s("Crisp"),
+            ..SelectorOption::new("a", "Apple")
+        },
+        SelectorOption::new("b", "Banana"),
+        SelectorOption {
+            is_disabled: true,
+            ..SelectorOption::new("c", "Cherry")
+        },
+        selector_divider(),
+        selector_section(
+            "More",
+            vec![
+                SelectorOption::new("d", "Date"),
+                SelectorOption::new("e", "Elder"),
+            ],
+        ),
+    ];
+    let vals = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+    let g = InputGroupProps {
+        id: s("grp"),
+        label: s("Group"),
+        ..Default::default()
+    };
+    check(
+        "multiselector",
+        vec![
+            (
+                "default",
+                multi_selector(&MultiSelectorProps {
+                    label: s("Fruit"),
+                    options: opts.clone(),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "labels",
+                multi_selector(&MultiSelectorProps {
+                    id: s("m"),
+                    label: s("Fruit"),
+                    options: opts.clone(),
+                    value: vals(&["a", "b", "d", "zz"]),
+                    trigger_display: s("labels"),
+                    has_clear: true,
+                    has_select_all: true,
+                    select_all_label: s("All"),
+                    name: s("fruit"),
+                    form: s("frm"),
+                    value_attrs: vec![a("data-bind:fruits", "")],
+                    indicator_position: s("end"),
+                    size: s("sm"),
+                    is_required: true,
+                    description: s("Pick some"),
+                    status: Some(FieldStatus::new("error", "Bad")),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "badges",
+                multi_selector(&MultiSelectorProps {
+                    id: s("b"),
+                    label: s("Tags"),
+                    options: opts.clone(),
+                    value: vals(&["a", "b", "d", "e"]),
+                    trigger_display: s("badges"),
+                    max_badges: 2,
+                    has_search: true,
+                    has_create: true,
+                    has_select_all: true,
+                    start_icon: s("search"),
+                    variant: s("secondary"),
+                    placeholder: s("Any"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "count-all",
+                multi_selector(&MultiSelectorProps {
+                    id: s("c"),
+                    label: s("Count"),
+                    options: opts.clone(),
+                    value: vals(&["a", "b", "d", "e"]),
+                    has_select_all: true,
+                    is_read_only: true,
+                    has_clear: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled",
+                multi_selector(&MultiSelectorProps {
+                    id: s("d"),
+                    label: s("Off"),
+                    options: opts.clone(),
+                    value: vals(&["a"]),
+                    is_disabled: true,
+                    name: s("off"),
+                    trigger_display: s("badges"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "group",
+                input_group(
+                    &g,
+                    multi_selector(&MultiSelectorProps {
+                        id: s("gm"),
+                        label: s("Unit"),
+                        options: opts,
+                        group: g.member(),
+                        ..Default::default()
+                    }),
+                ),
+            ),
+        ],
+    );
+}

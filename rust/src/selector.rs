@@ -16,7 +16,7 @@ use crate::misc::{
     DividerProps, SpinnerProps, VisuallyHiddenProps, divider, spinner, visually_hidden,
 };
 use crate::types::{FieldStatus, control_id};
-use maud::Markup;
+use maud::{Markup, html};
 
 /// One entry of a selector's options: an option, a divider ([`selector_divider`]) or a titled
 /// section of options ([`selector_section`]).
@@ -180,6 +180,85 @@ pub(crate) fn icon_or_none(name: &str) -> Option<Markup> {
 
 /// Renders the labelled control, its hidden value input and the popover listbox.
 pub fn selector(p: &SelectorProps) -> Markup {
+    let all = selectable_options(&p.options);
+    let selected = all
+        .iter()
+        .find(|o| !p.value.is_empty() && o.value == p.value)
+        .copied();
+    let placeholder = or(&p.placeholder, "Select…");
+    selector_shell(
+        p,
+        ShellParts {
+            class: "astryx-selector astryx-selector-control",
+            multiple: false,
+            has_value: selected.is_some(),
+            clear: format!("Clear {}", p.label),
+            trigger_body: &|ids: &SelectorIds| {
+                let value_text = selected.map(option_label).unwrap_or(placeholder);
+                let value_icon = p.start_icon.is_empty().then(|| {
+                    let name = selected.map(|o| o.icon.as_str()).unwrap_or("");
+                    // Kept (hidden while empty) so canon.js can show a picked option's icon.
+                    el(
+                        "span",
+                        attrs()
+                            .set("class", "astryx-selector-value-icon")
+                            .flag("hidden", name.is_empty()),
+                        [icon_or_none(name)],
+                    )
+                });
+                html! {
+                    @if let Some(i) = value_icon { (i) }
+                    (el(
+                        "span",
+                        attrs()
+                            .set("id", &ids.value)
+                            .set("class", "astryx-selector-value-text")
+                            .set("data-placeholder-text", placeholder),
+                        [Some(text(value_text))],
+                    ))
+                }
+            },
+            value: void(
+                "input",
+                attrs()
+                    .set("type", "hidden")
+                    .set("class", "astryx-selector-value")
+                    .when(!p.is_disabled && !p.name.is_empty(), "name", &p.name)
+                    .when(!p.is_disabled && !p.form.is_empty(), "form", &p.form)
+                    .set("value", &p.value)
+                    .extra(&p.value_attrs),
+            ),
+            listbox: &|ids: &SelectorIds, size: &str| {
+                selector_listbox(
+                    ids,
+                    &p.label,
+                    Vec::new(),
+                    &p.options,
+                    size,
+                    &p.indicator_position,
+                    &|o: &SelectorOption| !p.value.is_empty() && o.value == p.value,
+                    or(&p.empty_text, "No options"),
+                    or(&p.empty_search_text, "No results found"),
+                    "check",
+                )
+            },
+        },
+    )
+}
+
+/// What Selector and MultiSelector put into the shared control.
+pub(crate) struct ShellParts<'a> {
+    pub class: &'a str,
+    pub multiple: bool,
+    pub has_value: bool,
+    pub clear: String,
+    pub trigger_body: &'a dyn Fn(&SelectorIds) -> Markup,
+    pub value: Markup,
+    pub listbox: &'a dyn Fn(&SelectorIds, &str) -> Markup,
+}
+
+/// Renders the Field, the bordered control with its trigger and the popup.
+pub(crate) fn selector_shell(p: &SelectorProps, parts: ShellParts) -> Markup {
     let g = p.group.as_ref();
     let mut p = p.clone();
     if let Some(g) = g {
@@ -199,11 +278,6 @@ pub fn selector(p: &SelectorProps) -> Markup {
     let required = p.is_required && !p.is_optional;
     let id = control_id(&p.id, &p.label);
     let ids = selector_ids(&id);
-    let all = selectable_options(&p.options);
-    let selected = all
-        .iter()
-        .find(|o| !p.value.is_empty() && o.value == p.value)
-        .copied();
     let status_kind = p.status.as_ref().map(|s| s.kind.as_str()).unwrap_or("");
     let mut has_message = p.status.as_ref().is_some_and(|s| !s.message.is_empty());
     let desc_id = if !p.description.is_empty() && g.is_none() {
@@ -249,43 +323,7 @@ pub fn selector(p: &SelectorProps) -> Markup {
         .when(p.is_loading, "aria-busy", "true")
         .when(p.is_disabled, "aria-disabled", "true")
         .extra(&p.trigger_attrs);
-    let placeholder = or(&p.placeholder, "Select…");
-    let value_text = selected.map(option_label).unwrap_or(placeholder);
-    let value_icon = p.start_icon.is_empty().then(|| {
-        let name = selected.map(|o| o.icon.as_str()).unwrap_or("");
-        el(
-            "span",
-            attrs()
-                .set("class", "astryx-selector-value-icon")
-                .flag("hidden", name.is_empty()),
-            [icon_or_none(name)],
-        )
-    });
-    let trigger_btn = el(
-        "button",
-        trigger,
-        [
-            value_icon,
-            Some(el(
-                "span",
-                attrs()
-                    .set("id", &ids.value)
-                    .set("class", "astryx-selector-value-text")
-                    .set("data-placeholder-text", placeholder),
-                [Some(text(value_text))],
-            )),
-        ],
-    );
-    let hidden = void(
-        "input",
-        attrs()
-            .set("type", "hidden")
-            .set("class", "astryx-selector-value")
-            .when(!p.is_disabled && !p.name.is_empty(), "name", &p.name)
-            .when(!p.is_disabled && !p.form.is_empty(), "form", &p.form)
-            .set("value", &p.value)
-            .extra(&p.value_attrs),
-    );
+    let trigger_btn = el("button", trigger, [Some((parts.trigger_body)(&ids))]);
     let start_icon = icon_or_none(&p.start_icon);
     let group_label = g.map(|_| {
         visually_hidden(
@@ -316,13 +354,13 @@ pub fn selector(p: &SelectorProps) -> Markup {
             ("data-selector-clear".to_string(), String::new()),
             ("tabindex".into(), "-1".into()),
         ];
-        if selected.is_none() {
+        if !parts.has_value {
             a.push(("hidden".into(), "hidden".into()));
         }
         button(&ButtonProps {
             variant: "ghost".into(),
             size: "sm".into(),
-            label: format!("Clear {}", p.label),
+            label: parts.clear.clone(),
             icon: "close".into(),
             is_icon_only: true,
             class: "astryx-input-clear-button".into(),
@@ -359,7 +397,7 @@ pub fn selector(p: &SelectorProps) -> Markup {
             ],
             ..Default::default()
         },
-        maud::html! {},
+        html! {},
     );
     // Rendered even when read-only: canon.js reads option labels from it for bound values.
     let popup = selector_popup(
@@ -370,32 +408,20 @@ pub fn selector(p: &SelectorProps) -> Markup {
         p.has_search,
         required,
         or(&p.search_placeholder, "Search…"),
-        selector_listbox(
-            &ids,
-            &p.label,
-            &p.options,
-            size,
-            &p.indicator_position,
-            &|o: &SelectorOption| !p.value.is_empty() && o.value == p.value,
-            or(&p.empty_text, "No options"),
-            or(&p.empty_search_text, "No results found"),
-            "check",
-        ),
+        (parts.listbox)(&ids, size),
     );
     let control = el(
         "div",
         attrs()
-            .set(
-                "class",
-                &cls("astryx-selector astryx-selector-control", &p.control_class),
-            )
+            .set("class", &cls(parts.class, &p.control_class))
             .set("data-variant", variant)
             .set("data-size", size)
             .opt("data-status", status_kind)
             .flag("data-disabled", p.is_disabled)
             .flag("data-readonly", read_only)
-            .flag("data-placeholder", selected.is_none())
+            .flag("data-placeholder", !parts.has_value)
             .flag("data-search", p.has_search)
+            .flag("data-multiple", parts.multiple)
             .flag(
                 "data-default-open",
                 p.is_default_open && !p.is_disabled && !read_only,
@@ -406,7 +432,7 @@ pub fn selector(p: &SelectorProps) -> Markup {
             group_label,
             read_only_text,
             Some(trigger_btn),
-            Some(hidden),
+            Some(parts.value),
             spin,
             clear,
             end,
@@ -524,6 +550,7 @@ pub(crate) fn selector_popup(
 pub(crate) fn selector_listbox(
     ids: &SelectorIds,
     label: &str,
+    lead: Vec<Markup>,
     options: &[SelectorOption],
     size: &str,
     indicator: &str,
@@ -541,6 +568,7 @@ pub(crate) fn selector_listbox(
             indicator,
             is_selected(o),
             mark,
+            &[],
         );
         index += 1;
         r
@@ -588,7 +616,8 @@ pub(crate) fn selector_listbox(
             .flag("hidden", index > 0),
         [Some(text(empty_text))],
     );
-    let mut children = vec![Some(empty)];
+    let mut children: Vec<Option<Markup>> = lead.into_iter().map(Some).collect();
+    children.push(Some(empty));
     children.extend(rows);
     el(
         "div",
@@ -605,28 +634,32 @@ pub(crate) fn selector_listbox(
     )
 }
 
-fn selector_row(
+pub(crate) fn selector_row(
     id: &str,
     o: &SelectorOption,
     size: &str,
     indicator: &str,
     selected: bool,
     mark: &str,
+    extra: &[Attr],
 ) -> Markup {
-    let mark_el = if mark == "checkbox" {
-        el(
+    let mark_el = if mark == "none" {
+        None
+    } else if mark == "checkbox" {
+        Some(el(
             "span",
             attrs().set("class", "astryx-selector-option-mark"),
             [Some(el(
                 "span",
                 attrs()
                     .set("class", "astryx-checkbox-indicator")
+                    .set("data-size", "sm")
                     .set("aria-hidden", "true"),
                 [Some(raw(CHECK_MARK))],
             ))],
-        )
+        ))
     } else {
-        el(
+        Some(el(
             "span",
             attrs().set("class", "astryx-selector-option-mark"),
             [Some(el(
@@ -636,7 +669,7 @@ fn selector_row(
                     .set("aria-hidden", "true"),
                 [Some(icon(&IconProps::sized("check", "sm")))],
             ))],
-        )
+        ))
     };
     let desc = (!o.description.is_empty()).then(|| {
         el(
@@ -665,9 +698,9 @@ fn selector_row(
         ],
     );
     let (start, end) = if indicator == "start" {
-        (Some(mark_el), None)
+        (mark_el, None)
     } else {
-        (None, Some(mark_el))
+        (None, mark_el)
     };
     el(
         "div",
@@ -680,7 +713,8 @@ fn selector_row(
             .set("data-value", &o.value)
             .opt("data-icon", &o.icon)
             .set("data-mark", mark)
-            .set("data-size", size),
+            .set("data-size", size)
+            .extra(extra),
         [start, Some(content), end],
     )
 }

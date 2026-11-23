@@ -112,6 +112,64 @@ func selectableOptions(options []SelectorOption) []SelectorOption {
 
 // Selector renders the labelled control, its hidden value input and the popover listbox.
 func Selector(p SelectorProps) templ.Component {
+	var selected *SelectorOption
+	all := selectableOptions(p.Options)
+	for i := range all {
+		if p.Value != "" && all[i].Value == p.Value {
+			selected = &all[i]
+			break
+		}
+	}
+	placeholder := or(p.Placeholder, "Select…")
+	return selectorShell(p, shellParts{
+		class:    "astryx-selector astryx-selector-control",
+		hasValue: selected != nil,
+		clear:    "Clear " + p.Label,
+		triggerBody: func(ids selectorIDSet) templ.Component {
+			var valueIcon templ.Component
+			valueText := placeholder
+			if selected != nil {
+				valueText = optionLabel(*selected)
+			}
+			if p.StartIcon == "" {
+				icon := ""
+				if selected != nil {
+					icon = selected.Icon
+				}
+				// Kept (hidden while empty) so canon.js can show a picked option's icon.
+				valueIcon = el("span", newAttrs().set("class", "astryx-selector-value-icon").flag("hidden", icon == ""),
+					iconOrNil(icon))
+			}
+			return group(valueIcon, el("span", newAttrs().set("id", ids.value).set("class", "astryx-selector-value-text").
+				set("data-placeholder-text", placeholder), text(valueText)))
+		},
+		value: void("input", newAttrs().set("type", "hidden").
+			set("class", "astryx-selector-value").
+			when(!p.IsDisabled && p.Name != "", "name", p.Name).
+			when(!p.IsDisabled && p.Form != "", "form", p.Form).
+			set("value", p.Value).
+			extra(p.ValueAttrs)),
+		listbox: func(ids selectorIDSet, size string) templ.Component {
+			return selectorListbox(ids, p.Label, nil, p.Options, size, p.IndicatorPosition,
+				func(o SelectorOption) bool { return p.Value != "" && o.Value == p.Value },
+				or(p.EmptyText, "No options"), or(p.EmptySearchText, "No results found"), "check")
+		},
+	})
+}
+
+// shellParts is what Selector and MultiSelector put into the shared control.
+type shellParts struct {
+	class       string
+	multiple    bool
+	hasValue    bool
+	clear       string
+	triggerBody func(ids selectorIDSet) templ.Component
+	value       templ.Component
+	listbox     func(ids selectorIDSet, size string) templ.Component
+}
+
+// selectorShell renders the Field, the bordered control with its trigger and the popup.
+func selectorShell(p SelectorProps, parts shellParts) templ.Component {
 	g := p.Group
 	if g != nil {
 		p.IsDisabled = p.IsDisabled || g.IsDisabled
@@ -128,14 +186,6 @@ func Selector(p SelectorProps) templ.Component {
 	required := p.IsRequired && !p.IsOptional
 	id := controlID(p.ID, p.Label)
 	ids := selectorIDs(id)
-	all := selectableOptions(p.Options)
-	var selected *SelectorOption
-	for i := range all {
-		if p.Value != "" && all[i].Value == p.Value {
-			selected = &all[i]
-			break
-		}
-	}
 	statusType, hasMessage := "", false
 	if p.Status != nil {
 		statusType, hasMessage = p.Status.Type, p.Status.Message != ""
@@ -168,30 +218,7 @@ func Selector(p SelectorProps) templ.Component {
 		when(p.IsLoading, "aria-busy", "true").
 		when(p.IsDisabled, "aria-disabled", "true").
 		extra(p.TriggerAttrs)
-	var valueIcon templ.Component
-	placeholder := or(p.Placeholder, "Select…")
-	valueText := placeholder
-	if selected != nil {
-		valueText = optionLabel(*selected)
-	}
-	if p.StartIcon == "" {
-		icon := ""
-		if selected != nil {
-			icon = selected.Icon
-		}
-		// Kept (hidden while empty) so canon.js can show a picked option's icon.
-		valueIcon = el("span", newAttrs().set("class", "astryx-selector-value-icon").flag("hidden", icon == ""),
-			iconOrNil(icon))
-	}
-	triggerBtn := el("button", trigger, valueIcon,
-		el("span", newAttrs().set("id", ids.value).set("class", "astryx-selector-value-text").
-			set("data-placeholder-text", placeholder), text(valueText)))
-	hidden := void("input", newAttrs().set("type", "hidden").
-		set("class", "astryx-selector-value").
-		when(!p.IsDisabled && p.Name != "", "name", p.Name).
-		when(!p.IsDisabled && p.Form != "", "form", p.Form).
-		set("value", p.Value).
-		extra(p.ValueAttrs))
+	triggerBtn := el("button", trigger, parts.triggerBody(ids))
 	var startIcon, groupLabel, readOnlyText, spinner, clear, end templ.Component
 	if p.StartIcon != "" {
 		startIcon = Icon(IconProps{Name: p.StartIcon, Size: "sm", Color: "secondary"})
@@ -207,10 +234,10 @@ func Selector(p SelectorProps) templ.Component {
 	}
 	if p.HasClear && !p.IsDisabled && !readOnly {
 		a := []Attr{{"data-selector-clear", ""}, {"tabindex", "-1"}}
-		if selected == nil {
+		if !parts.hasValue {
 			a = append(a, Attr{"hidden", "hidden"})
 		}
-		clear = Button(ButtonProps{Variant: "ghost", Size: "sm", Label: "Clear " + p.Label, Icon: "close",
+		clear = Button(ButtonProps{Variant: "ghost", Size: "sm", Label: parts.clear, Icon: "close",
 			IsIconOnly: true, Class: "astryx-input-clear-button", Attrs: a})
 	}
 	if statusType != "" && statusVariant != "detached" {
@@ -222,20 +249,19 @@ func Selector(p SelectorProps) templ.Component {
 	live := visuallyHidden(VisuallyHiddenProps{ID: id + "-live", Class: "astryx-selector-live", Attrs: []Attr{{"aria-live", "polite"}, {"aria-atomic", "true"}}}, nil)
 	// Rendered even when read-only: canon.js reads option labels from it for bound values.
 	popup := selectorPopup(ids, p.Label, variant, size, or(p.Placement, "below"), p.HasSearch, required,
-		or(p.SearchPlaceholder, "Search…"), selectorListbox(ids, p.Label, p.Options, size, p.IndicatorPosition,
-			func(o SelectorOption) bool { return p.Value != "" && o.Value == p.Value },
-			or(p.EmptyText, "No options"), or(p.EmptySearchText, "No results found"), "check"))
-	control := el("div", newAttrs().set("class", cls("astryx-selector astryx-selector-control", p.ControlClass)).
+		or(p.SearchPlaceholder, "Search…"), parts.listbox(ids, size))
+	control := el("div", newAttrs().set("class", cls(parts.class, p.ControlClass)).
 		set("data-variant", variant).
 		set("data-size", size).
 		opt("data-status", statusType).
 		flag("data-disabled", p.IsDisabled).
 		flag("data-readonly", readOnly).
-		flag("data-placeholder", selected == nil).
+		flag("data-placeholder", !parts.hasValue).
 		flag("data-search", p.HasSearch).
+		flag("data-multiple", parts.multiple).
 		flag("data-default-open", p.IsDefaultOpen && !p.IsDisabled && !readOnly).
 		when(g != nil, "data-astryx-input-group-item", ""),
-		startIcon, groupLabel, readOnlyText, triggerBtn, hidden, spinner, clear, end, live, popup)
+		startIcon, groupLabel, readOnlyText, triggerBtn, parts.value, spinner, clear, end, live, popup)
 	if g != nil {
 		return control
 	}
@@ -301,7 +327,7 @@ func selectorPopup(ids selectorIDSet, label, variant, size, placement string, ha
 }
 
 // selectorListbox renders the rows; mark is "check" (Selector) or "checkbox" (MultiSelector).
-func selectorListbox(ids selectorIDSet, label string, options []SelectorOption, size, indicator string,
+func selectorListbox(ids selectorIDSet, label string, lead []templ.Component, options []SelectorOption, size, indicator string,
 	isSelected func(SelectorOption) bool, emptyText, emptySearchText, mark string) templ.Component {
 	index := 0
 	row := func(o SelectorOption) templ.Component {
@@ -339,16 +365,18 @@ func selectorListbox(ids selectorIDSet, label string, options []SelectorOption, 
 		set("class", "astryx-selector-listbox").
 		set("data-empty-text", emptyText).
 		set("data-empty-search-text", emptySearchText),
-		append([]templ.Component{empty}, rows...)...)
+		append(append(lead, empty), rows...)...)
 }
 
-func selectorRow(id string, o SelectorOption, size, indicator string, selected bool, mark string) templ.Component {
+func selectorRow(id string, o SelectorOption, size, indicator string, selected bool, mark string, extra ...Attr) templ.Component {
 	var markEl templ.Component
-	if mark == "checkbox" {
+	switch mark {
+	case "none":
+	case "checkbox":
 		markEl = el("span", newAttrs().set("class", "astryx-selector-option-mark"),
-			el("span", newAttrs().set("class", "astryx-checkbox-indicator").set("aria-hidden", "true"),
+			el("span", newAttrs().set("class", "astryx-checkbox-indicator").set("data-size", "sm").set("aria-hidden", "true"),
 				raw(checkMark)))
-	} else {
+	default:
 		markEl = el("span", newAttrs().set("class", "astryx-selector-option-mark"),
 			el("span", newAttrs().set("class", "astryx-check-indicator").set("aria-hidden", "true"),
 				Icon(IconProps{Name: "check", Size: "sm"})))
@@ -373,5 +401,6 @@ func selectorRow(id string, o SelectorOption, size, indicator string, selected b
 		set("data-value", o.Value).
 		opt("data-icon", o.Icon).
 		set("data-mark", mark).
-		set("data-size", size), start, content, end)
+		set("data-size", size).
+		extra(extra), start, content, end)
 }

@@ -184,7 +184,8 @@ content (`tooltip-<slug>`) or fixed (`popover`, `menu`).
   `Timestamp`
 - Form: `Field`, `FieldLabel`, `FieldStatusMessage` / `field_status`, `TextInput`, `TextArea`,
   `NumberInput`, `InputGroup`, `InputGroupText`, `CheckboxInput`, `CheckboxList`, `Switch`, `RadioList`,
-  `Slider`, `FileInput`
+  `Slider`, `FileInput`, `Selector` (with `SelectorOption`, `SelectorSection`, `SelectorDivider`),
+  `MultiSelector`
 - List: `Item`
 - Overlay: `Tooltip`, `InfoTip`, `Popover`, `Dialog`, `DialogHeader`, `DropdownMenu`,
   `DropdownMenuItem`, `DropdownMenuGroup`, `DropdownMenuDivider`, `TabList` (with `TabProps`),
@@ -202,9 +203,15 @@ Not ported yet: `TextInput` clear button, `disabledMessage`, `labelTooltip`, cus
 icons, Button tooltips, touch long-press and bottom-sheet presentation, menu submenus and
 checkbox/radio items, tab overflow arrows, toast swipe, Collapsible height animation, the
 Timestamp hover card with copy buttons, emoji initials in Avatar, `changeAction` on form controls,
-function-valued `formatValue` (use the `Format` JSON options), the Slider touch controller. Selector,
-MultiSelector, Typeahead, Tokenizer and the date and time inputs come next, then the remaining
-Astryx categories.
+function-valued `formatValue` (use the `Format` JSON options), the Slider touch controller, Selector
+`renderOption`/`renderValue`, MultiSelector option actions and `formatValue`. Typeahead, Tokenizer
+and the date and time inputs come next, then the remaining Astryx categories.
+
+Selectors keep their value in a hidden element that `data-bind` goes on (`ValueAttrs`): an
+`<input type="hidden">` for `Selector` (a string signal) and a `<select multiple>` for
+`MultiSelector` (an array signal, in option order). `MultiSelector` with `HasCreate` adds the
+created value as a new option and fires a bubbling `astryx-create` event (`evt.detail.query`), so
+`data-on:astryx-create` can tell the server; a signal can only select values that are options.
 
 ## Develop
 

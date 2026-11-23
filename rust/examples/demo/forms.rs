@@ -252,6 +252,25 @@ fn selectors() -> Markup {
     }
 }
 
+fn multi_selectors() -> Markup {
+    let vals = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+    html! {
+        div.demo-grid {
+            (multi_selector(&MultiSelectorProps { id: s("fruits"), label: s("Fruits"), options: fruit_options(), value: vals(&["apple", "fig"]),
+                has_clear: true, has_select_all: true, trigger_display: s("labels"), description: s("The list stays open while you toggle"),
+                value_attrs: bind("fruits"), ..Default::default() }))
+            (multi_selector(&MultiSelectorProps { id: s("tags"), label: s("Regions"), options: region_options(), has_search: true,
+                has_create: true, has_select_all: true, trigger_display: s("badges"), max_badges: 2, placeholder: s("Any region"),
+                value_attrs: bind("tags"), ..Default::default() }))
+            (multi_selector(&MultiSelectorProps { id: s("count"), label: s("Count"), options: fruit_options(), value: vals(&["banana", "cherry"]),
+                variant: s("secondary"), size: s("sm"), indicator_position: s("end"), ..Default::default() }))
+            (multi_selector(&MultiSelectorProps { id: s("mlocked"), label: s("Read only"), options: fruit_options(), value: vals(&["fig"]),
+                is_read_only: true, ..Default::default() }))
+        }
+        p.demo-panel { "fruits: " span data-text="JSON.stringify($fruits)" {} " · tags: " span data-text="JSON.stringify($tags)" {} " · " button type="button" data-on:click="$fruits = ['grape', 'banana']" { "Set fruits" } }
+    }
+}
+
 fn items() -> Markup {
     let qty = || Some(vec![attr("data-on:click", "$qty++")]);
     html! {
@@ -270,7 +289,7 @@ pub(crate) fn page() -> Markup {
     html! {
         h1 { "Forms" }
         p.demo-lead { "Server-rendered controls bound to Datastar signals; static/canon.js adds counters, drafts, stepping, dragging and file checks." }
-        div data-signals="{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', fruit: 'banana', region: '', agree: false}" {
+        div data-signals="{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', fruit: 'banana', region: '', fruits: ['apple', 'fig'], tags: [], agree: false}" {
             (section("TextArea", text_areas()))
             (section("NumberInput", number_inputs()))
             (section("InputGroup", input_groups()))
@@ -278,6 +297,7 @@ pub(crate) fn page() -> Markup {
             (section("Slider", sliders()))
             (section("FileInput", file_inputs()))
             (section("Selector", selectors()))
+            (section("MultiSelector", multi_selectors()))
             (section("Item", items()))
             (section("Submit", html! {
                 (button(&ButtonProps { label: s("Send signals"), variant: s("primary"),

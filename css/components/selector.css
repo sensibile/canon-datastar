@@ -7,6 +7,9 @@
  *     <input type="hidden" class="astryx-selector-value"> [spinner] [clear] (status icon | chevron)
  *     <span class="astryx-selector-live"> <div popover class="astryx-layer astryx-selector-popup"> [search row] <div class="astryx-selector-listbox-wrap">
  *     <div role="listbox" class="astryx-selector-listbox"> rows: <div role="option" class="astryx-selector-option-row">
+ * MultiSelector: class "astryx-multi-selector astryx-selector-control" [data-multiple], a hidden
+ *   <select multiple class="astryx-multi-selector-value"> in place of the input, checkbox rows
+ *   (data-mark="checkbox"), optional [data-select-all] (data-state) and [data-create] lead rows.
  * static/canon.js writes data-open, data-highlighted / data-keyboard on rows and hides filtered rows. */
 @layer astryx-base {
   .astryx-selector-control {
@@ -260,4 +263,35 @@
   }
   .astryx-selector-option-mark > .astryx-check-indicator { display: inline-flex; color: var(--color-icon-primary); visibility: hidden; }
   [aria-selected='true'] > .astryx-selector-option-mark > .astryx-check-indicator { visibility: visible; }
+
+  /* MultiSelector: checkbox rows follow aria-selected (or data-state on the select-all row). */
+  .astryx-selector-option-row[data-mark='checkbox'] .astryx-checkbox-indicator { position: relative; width: 20px; height: 20px; }
+  :is([data-mark='checkbox'][aria-selected='true']:not([data-state='indeterminate']), [data-state='indeterminate']) .astryx-checkbox-indicator {
+    color: var(--color-on-accent);
+    border-color: var(--color-accent);
+    background-color: var(--color-accent);
+  }
+  [data-mark='checkbox'][aria-selected='true']:not([data-state='indeterminate']) .astryx-checkbox-indicator > .astryx-checkbox-indicator-check,
+  [data-mark='checkbox'][data-state='indeterminate'] .astryx-checkbox-indicator > .astryx-checkbox-indicator-dash { display: block; }
+  .astryx-selector-option-row[data-mark='checkbox'] .astryx-checkbox-indicator > .astryx-checkbox-indicator-check {
+    width: calc((100% + 2 * var(--border-width)) * 12 / 20);
+    height: calc((100% + 2 * var(--border-width)) * 12 / 20);
+  }
+  .astryx-selector-option-row[data-mark='checkbox'][aria-disabled='true'] .astryx-checkbox-indicator { border-color: var(--color-border); }
+  .astryx-selector-option-row[data-mark='checkbox'][aria-disabled='true']:not([aria-selected='true']) .astryx-checkbox-indicator { background-color: var(--color-background-muted); }
+  .astryx-selector-option-row[data-mark='none'] { padding-inline-start: var(--spacing-2); }
+  .astryx-selector-value-text[data-badges] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-1);
+    align-items: center;
+    white-space: normal;
+  }
+  .astryx-multi-selector-overflow {
+    flex-shrink: 0;
+    font-size: var(--text-label-size);
+    line-height: var(--text-label-leading);
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-medium);
+  }
 }
