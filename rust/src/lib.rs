@@ -28,6 +28,7 @@ mod metadata;
 mod misc;
 mod popover;
 mod progress;
+mod selector;
 mod tabs;
 mod text;
 mod theme;
@@ -80,6 +81,7 @@ pub use misc::{
 };
 pub use popover::{PopoverProps, popover};
 pub use progress::{ProgressBarMark, ProgressBarProps, progress_bar};
+pub use selector::{SelectorOption, SelectorProps, selector, selector_divider, selector_section};
 pub use tabs::{TabListProps, TabPanelProps, TabProps, tab_list, tab_panel};
 pub use text::{HeadingProps, TextProps, heading, text};
 pub use theme::{THEMES, ThemeMode, ThemeProps, theme};

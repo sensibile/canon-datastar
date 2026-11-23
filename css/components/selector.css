@@ -1,0 +1,263 @@
+/* Selector and MultiSelector. Port of Astryx packages/core/src/Selector and MultiSelector
+ * (MIT, Meta Platforms, Inc.).
+ * Markup (inside a Field):
+ *   <div class="astryx-selector astryx-selector-control" data-variant data-size [data-status]
+ *        [data-disabled] [data-readonly] [data-placeholder] [data-open]>
+ *     [icon] <button class="astryx-selector-trigger" role="combobox">…<span class="astryx-selector-value-text">
+ *     <input type="hidden" class="astryx-selector-value"> [spinner] [clear] (status icon | chevron)
+ *     <span class="astryx-selector-live"> <div popover class="astryx-layer astryx-selector-popup"> [search row] <div class="astryx-selector-listbox-wrap">
+ *     <div role="listbox" class="astryx-selector-listbox"> rows: <div role="option" class="astryx-selector-option-row">
+ * static/canon.js writes data-open, data-highlighted / data-keyboard on rows and hides filtered rows. */
+@layer astryx-base {
+  .astryx-selector-control {
+    box-sizing: border-box;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+    width: 100%;
+    padding-inline: var(--spacing-3);
+    border: var(--border-width) solid var(--color-border-emphasized);
+    --_field-radius: var(--radius-element);
+    border-radius: var(--_field-radius);
+    background-color: var(--color-background-surface);
+    font-family: var(--font-family-body);
+    font-size: var(--text-label-size);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition-property: border-color, box-shadow;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+    --_line: max(var(--spacing-5), 20px, 1rem);
+    line-height: var(--_line);
+  }
+  @media (pointer: coarse) {
+    @supports (-webkit-touch-callout: none) {
+      .astryx-selector-control { font-size: max(1rem, var(--text-label-size)); }
+    }
+  }
+  @media (prefers-reduced-motion: reduce), (pointer: coarse) {
+    .astryx-selector-control { transition-duration: 0s; }
+  }
+  .astryx-selector-control[data-size='sm'] { min-height: var(--size-element-sm); padding-block: calc((var(--size-element-sm) - var(--_line) - 2 * var(--border-width)) / 2); }
+  .astryx-selector-control[data-size='md'] { min-height: var(--size-element-md); padding-block: calc((var(--size-element-md) - var(--_line) - 2 * var(--border-width)) / 2); }
+  .astryx-selector-control[data-size='lg'] { min-height: var(--size-element-lg); padding-block: calc((var(--size-element-lg) - var(--_line) - 2 * var(--border-width)) / 2); }
+
+  @media (hover: hover) {
+    .astryx-selector-control[data-variant='input']:not([data-disabled], [data-readonly]):hover:not(:focus-within) {
+      box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-border-emphasized) 30%, transparent);
+    }
+    .astryx-selector-control[data-variant='input'][data-status='warning']:not([data-disabled]):hover:not(:focus-within) { box-shadow: var(--shadow-inset-warning); }
+    .astryx-selector-control[data-variant='input'][data-status='error']:not([data-disabled]):hover:not(:focus-within) { box-shadow: var(--shadow-inset-error); }
+    .astryx-selector-control[data-variant='input'][data-status='success']:not([data-disabled]):hover:not(:focus-within) { box-shadow: var(--shadow-inset-success); }
+  }
+  .astryx-selector-control[data-variant='input']:focus-within:not([data-disabled]) {
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 2px var(--color-accent-muted);
+  }
+  @media (forced-colors: active) {
+    .astryx-selector-control:focus-within { border-color: Highlight; }
+  }
+  .astryx-selector-control[data-variant='input'][data-status='warning'] { border-color: var(--color-border-warning); }
+  .astryx-selector-control[data-variant='input'][data-status='error'] { border-color: var(--color-border-error); }
+  .astryx-selector-control[data-variant='input'][data-status='success'] { border-color: var(--color-border-success); }
+
+  .astryx-selector-control:is([data-variant='secondary'], [data-variant='ghost']) {
+    width: fit-content;
+    max-width: 100%;
+    border-width: 0;
+    font-weight: var(--font-weight-medium);
+    background-image: linear-gradient(var(--_overlay, transparent), var(--_overlay, transparent));
+    transition-property: background-image, background-color, color, opacity, transform;
+    transform: scale(1);
+  }
+  .astryx-selector-control[data-variant='secondary'] { background-color: var(--color-neutral); }
+  .astryx-selector-control[data-variant='ghost'] { background-color: transparent; }
+  @media (hover: hover) {
+    .astryx-selector-control:is([data-variant='secondary'], [data-variant='ghost']):not([data-disabled], [data-readonly]):hover { --_overlay: var(--color-overlay-hover); }
+  }
+  .astryx-selector-control:is([data-variant='secondary'], [data-variant='ghost']):not([data-disabled], [data-readonly], [data-open]):active { transform: scale(0.98); --_overlay: var(--color-overlay-pressed); }
+  .astryx-selector-control:is([data-variant='secondary'], [data-variant='ghost'])[data-open] { --_overlay: var(--color-overlay-pressed); }
+  .astryx-selector-control:is([data-variant='secondary'], [data-variant='ghost']):has(.astryx-selector-trigger:focus-visible) {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: var(--focus-outline-offset, 2px);
+  }
+
+  .astryx-selector-control[data-disabled] { cursor: default; opacity: 0.5; }
+  .astryx-selector-control[data-variant='input'][data-disabled] { border-color: var(--color-border-emphasized); box-shadow: none; }
+  .astryx-selector-control[data-readonly] { cursor: default; }
+  .astryx-selector-control[data-astryx-input-group-item] { flex: 1; min-width: 0; min-height: 0; padding-block: 0; }
+  .astryx-selector-control[data-astryx-input-group-item][data-disabled] { opacity: 1; }
+
+  .astryx-selector-control > .astryx-input-clear-button { height: 20px; color: var(--color-icon-secondary); }
+  .astryx-selector-control > [data-selector-clear][hidden] { display: none; }
+  .astryx-selector-indicator-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    transition: transform var(--duration-fast) var(--ease-standard);
+  }
+  [data-open] > .astryx-selector-indicator-icon { transform: rotate(180deg); }
+  @media (prefers-reduced-motion: reduce) {
+    .astryx-selector-indicator-icon { transition: none; }
+  }
+
+  .astryx-selector-trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    border: 0 none;
+    background-color: transparent;
+    font: inherit;
+    line-height: inherit;
+    color: inherit;
+    cursor: inherit;
+    outline: none;
+    text-align: start;
+  }
+  .astryx-selector-control:not([data-variant='input']) .astryx-selector-trigger { flex: 1 1 auto; }
+  [data-astryx-input-group-item] > .astryx-selector-trigger { align-self: stretch; }
+  [data-placeholder] > .astryx-selector-trigger { color: var(--color-text-secondary); }
+  .astryx-selector-value-icon { display: inline-flex; flex-shrink: 0; }
+  .astryx-selector-value-icon[hidden] { display: none; }
+  .astryx-selector-value-text {
+    flex-grow: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: start;
+  }
+
+  /* The popup. */
+  .astryx-layer.astryx-selector-popup {
+    /* It sits inside the control in the DOM; don't inherit the trigger's type or cursor. */
+    font-weight: var(--font-weight-normal);
+    line-height: normal;
+    cursor: auto;
+    box-sizing: border-box;
+    flex-direction: column;
+    max-height: calc(100vh - 16px);
+    background-color: var(--color-background-popover);
+    color: var(--color-text-primary);
+    border-radius: var(--radius-container);
+    box-shadow: var(--shadow-low);
+    overflow: hidden;
+  }
+  .astryx-layer.astryx-selector-popup:popover-open { display: flex; }
+  @media (forced-colors: active) {
+    .astryx-layer.astryx-selector-popup { border: 1px solid CanvasText; }
+  }
+  .astryx-selector-search-panel { display: flex; flex-direction: column; min-height: 0; max-height: calc(100vh - 16px); }
+  .astryx-selector-search-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-3);
+  }
+  .astryx-selector-search {
+    flex: 1;
+    min-width: 0;
+    border: 0 none;
+    padding: 0;
+    font-family: var(--font-family-body);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    color: var(--color-text-primary);
+    background: transparent;
+    outline: none;
+  }
+  .astryx-selector-search::placeholder { color: var(--color-text-secondary); }
+  .astryx-selector-search-clear[hidden] { display: none; }
+  .astryx-selector-listbox-wrap {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: min(300px, calc(100vh - 16px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--spacing-1);
+    touch-action: pan-y pinch-zoom;
+  }
+  .astryx-selector-listbox-wrap[data-input] { padding-inline: calc(var(--spacing-1) + var(--border-width)); }
+  .astryx-selector-listbox { outline: none; }
+  .astryx-selector-listbox [hidden] { display: none; }
+  .astryx-selector-empty-state {
+    padding: var(--spacing-3);
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-body);
+    font-size: var(--text-label-size);
+    line-height: var(--text-label-leading);
+  }
+  .astryx-selector-section-heading {
+    padding-block: var(--spacing-1);
+    padding-inline: var(--spacing-2);
+    font-family: var(--font-family-body);
+    font-size: var(--text-supporting-size);
+    line-height: var(--text-supporting-leading);
+    color: var(--color-text-secondary);
+    user-select: none;
+  }
+  .astryx-selector-divider { margin-block: var(--spacing-1); }
+
+  /* Option rows. */
+  .astryx-selector-option-row {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+    width: 100%;
+    padding: var(--spacing-2);
+    border-radius: var(--radius-element);
+    font-family: var(--font-family-body);
+    font-size: var(--text-label-size);
+    line-height: var(--text-label-leading);
+    color: var(--color-text-primary);
+    background-color: transparent;
+    cursor: pointer;
+    text-align: start;
+    outline-style: none;
+    user-select: none;
+  }
+  .astryx-selector-option-row[data-size='sm'] { padding-block: var(--spacing-1); padding-inline: var(--spacing-2); }
+  .astryx-selector-option-row[data-size='md'] { padding-block: var(--spacing-1-5); }
+  .astryx-selector-option-row[data-highlighted] { background-color: var(--color-overlay-hover); }
+  .astryx-selector-option-row[data-keyboard] {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: calc(-1 * var(--focus-outline-width));
+  }
+  .astryx-selector-option-row[data-mark='check'][aria-selected='true'] { font-weight: var(--font-weight-medium); }
+  .astryx-selector-option-row[aria-disabled='true'] { opacity: 0.5; cursor: default; }
+  .astryx-selector-option-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex: 1;
+    min-width: 0;
+  }
+  .astryx-selector-option { display: flex; flex-direction: column; min-width: 0; }
+  .astryx-selector-option-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .astryx-selector-option-description {
+    font-size: var(--text-supporting-size);
+    line-height: var(--text-supporting-leading);
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-normal);
+  }
+  .astryx-selector-option-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 1rem;
+  }
+  .astryx-selector-option-mark > .astryx-check-indicator { display: inline-flex; color: var(--color-icon-primary); visibility: hidden; }
+  [aria-selected='true'] > .astryx-selector-option-mark > .astryx-check-indicator { visibility: visible; }
+}
