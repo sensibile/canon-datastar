@@ -3369,7 +3369,7 @@ function tkAdd(ctl, row) {
     hookProperty(opt, 'selected', () => tkSelected(ctl));
   }
   // Chosen options come first, in the order they were added.
-  const after = chosen.at(-1)?.nextSibling ?? hidden.firstChild;
+  const after = chosen.length > 0 ? chosen.at(-1).nextSibling : hidden.firstChild;
   if (opt !== after) hidden.insertBefore(opt, after);
   opt.selected = true;
   renderTokenizer(ctl);
@@ -3421,7 +3421,13 @@ doc.addEventListener('input', (e) => {
   if (!(t instanceof HTMLInputElement) || !t.matches('.astryx-search-input')) return;
   const ctl = taCtl(t);
   if (!ctl || taDisabled(ctl)) return;
-  taState(ctl).keyboard = true;
+  const s = taState(ctl);
+  s.keyboard = true;
+  // Typing behind a shown token (focus reached the input some other way) edits the search.
+  if (taShowsToken(ctl)) {
+    s.editing = true;
+    renderTypeahead(ctl);
+  }
   taSetQuery(ctl, t.value);
 });
 

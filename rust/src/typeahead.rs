@@ -570,7 +570,8 @@ pub fn typeahead(p: &TypeaheadProps) -> Markup {
         is_optional: p.is_optional,
         is_required: p.is_required,
         is_disabled: p.is_disabled,
-        has_auto_focus: p.has_auto_focus,
+        // With a value the token shows, so it takes the autofocus.
+        has_auto_focus: p.has_auto_focus && !has,
         size: &p.size,
         status: &p.status,
         status_variant: &p.status_variant,
@@ -597,6 +598,9 @@ pub fn typeahead(p: &TypeaheadProps) -> Markup {
         )];
         if !described_by.is_empty() {
             action.push(("aria-describedby".into(), described_by.into()));
+        }
+        if p.has_auto_focus && has && !disabled {
+            action.push(("autofocus".into(), String::new()));
         }
         let t = token(&TokenProps {
             label: label.clone(),

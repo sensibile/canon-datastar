@@ -378,7 +378,8 @@ func Typeahead(p TypeaheadProps) templ.Component {
 		Placeholder: p.Placeholder, HasEntriesOnFocus: p.HasEntriesOnFocus, MaxMenuItems: p.MaxMenuItems,
 		MinQueryLength: p.MinQueryLength, EmptySearchText: p.EmptySearchText, IsLabelHidden: p.IsLabelHidden,
 		Description: p.Description, IsOptional: p.IsOptional, IsRequired: p.IsRequired, IsDisabled: p.IsDisabled,
-		HasAutoFocus: p.HasAutoFocus, Size: p.Size, Status: p.Status, StatusVariant: p.StatusVariant,
+		// With a value the token shows, so it takes the autofocus.
+		HasAutoFocus: p.HasAutoFocus && !has, Size: p.Size, Status: p.Status, StatusVariant: p.StatusVariant,
 		StartIcon: p.StartIcon, Width: p.Width, Class: p.Class, ControlClass: p.ControlClass, Attrs: p.Attrs,
 		InputAttrs: p.InputAttrs, Group: p.Group}
 	size := or(p.Size, "")
@@ -404,6 +405,9 @@ func Typeahead(p TypeaheadProps) templ.Component {
 			action := []Attr{{"aria-labelledby", labelledBy + " " + ids.input + "-token-value"}}
 			if describedBy != "" {
 				action = append(action, Attr{"aria-describedby", describedBy})
+			}
+			if p.HasAutoFocus && has && !disabled {
+				action = append(action, Attr{"autofocus", ""})
 			}
 			token := Token(TokenProps{Label: label, Size: size, IsDisabled: disabled, Action: action})
 			wrap := el("span", newAttrs().set("class", "astryx-typeahead-token").flag("hidden", !has), token)
