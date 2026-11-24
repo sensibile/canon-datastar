@@ -1436,6 +1436,12 @@ doc.addEventListener('reset', (e) => {
       taState(ctl).editing = false;
       taClose(ctl);
       if (tokensBefore.has(ctl)) {
+        // Adding moves options (the value is in add order); put back the initial order.
+        const order = hidden._canonOrder ?? [];
+        const rest = [...hidden.options].filter((o) => !order.includes(o));
+        [...order, ...rest].forEach((o, i) => {
+          if (hidden.options[i] !== o) hidden.insertBefore(o, hidden.options[i] ?? null);
+        });
         renderTokenizer(ctl);
         if (tokensBefore.get(ctl) !== tkChosen(ctl).map((o) => o.value).join('\u0000')) taNotify(hidden);
         continue;
@@ -3047,7 +3053,7 @@ function taParts(ctl) {
 const taIsTokenizer = (ctl) => ctl.classList.contains('astryx-tokenizer');
 const taDisabled = (ctl) => ctl.hasAttribute('data-disabled');
 function taState(ctl) {
-  ctl._canonTa ??= { want: false, active: null, keyboard: false, timer: 0, sent: null, editing: false, announced: '', labels: new Map() };
+  ctl._canonTa ??= { want: false, active: null, keyboard: false, timer: 0, sent: null, got: null, editing: false, announced: '', labels: new Map() };
   return ctl._canonTa;
 }
 const taRows = (ctl) => [...(taParts(ctl).listbox?.querySelectorAll(':scope > [role="option"][data-id]') ?? [])];
@@ -3121,6 +3127,13 @@ function taRefresh(ctl) {
   // A remote answer counts once it's for this query and no newer request is waiting.
   const fresh = !remote || (!s.timer && listbox.dataset.query === query);
   const answered = searchable && fresh;
+  if (remote && answered) s.got = query;
+  else if (remote && searchable && !s.timer && s.sent === query && s.got === query) {
+    // An older answer landed after this query's and replaced it: ask again.
+    s.got = null;
+    s.sent = null;
+    return taRequest(ctl, true);
+  }
   const chosen = tokenizer ? new Set(tkChosen(ctl).map((o) => o.value)) : null;
   const chosenLabels = tokenizer ? new Set(tkChosen(ctl).map((o) => o.textContent.toLowerCase())) : null;
   const max = Number(ctl.dataset.maxItems) || 10;
@@ -3182,7 +3195,10 @@ function taRefresh(ctl) {
   const key = answered ? `${query}\u0000${shown.length}` : '';
   if (key !== s.announced) {
     s.announced = key;
-    if (answered && query !== '') taAnnounce(ctl, shown.length > 0 ? `${shown.length} ${shown.length === 1 ? 'result' : 'results'}` : '');
+    if (answered && query !== '') {
+      taAnnounce(ctl, shown.length > 0 ? `${shown.length} ${shown.length === 1 ? 'result' : 'results'}`
+        : creating ? `No results. Create "${query}"` : ctl.dataset.emptySearchText || 'No results found');
+    }
   }
 }
 
@@ -3218,7 +3234,7 @@ function renderTypeahead(ctl) {
   let label = value;
   if (value !== '') {
     const row = taRows(ctl).find((r) => r.dataset.id === value);
-    label = s.labels.get(value) ?? (row ? taRowLabel(row) : hidden.dataset.label || value);
+    label = s.labels.get(value) ?? (row ? taRowLabel(row) : value);
   }
   attrTo(hidden, 'data-label', label);
   const showToken = value !== '' && !s.editing;
@@ -3272,6 +3288,19 @@ function renderTokenizer(ctl) {
     if (atMax) ids.push(limit.id);
     attrTo(input, 'aria-describedby', ids.join(' ') || null);
   }
+}
+
+/** Tokenizer: an option's selected flag changed (here or from data-bind); the results may
+ * offer a chosen item or the field may have reached its max. Batched per task. */
+function tkSelected(ctl) {
+  renderTokenizer(ctl);
+  const s = taState(ctl);
+  if (s.selQueued) return;
+  s.selQueued = true;
+  queueMicrotask(() => {
+    s.selQueued = false;
+    taRefresh(ctl);
+  });
 }
 
 const renderSearch = (ctl) => (taIsTokenizer(ctl) ? renderTokenizer(ctl) : renderTypeahead(ctl));
@@ -3337,7 +3366,7 @@ function tkAdd(ctl, row) {
   let opt = [...hidden.options].find((o) => o.value === id);
   if (!opt) {
     opt = new Option(label, id);
-    hookProperty(opt, 'selected', () => renderTokenizer(ctl));
+    hookProperty(opt, 'selected', () => tkSelected(ctl));
   }
   // Chosen options come first, in the order they were added.
   const after = chosen.at(-1)?.nextSibling ?? hidden.firstChild;
@@ -3558,9 +3587,14 @@ function wireSearch(ctl) {
   const { hidden, popup } = taParts(ctl);
   if (!hidden) return;
   if (hidden instanceof HTMLSelectElement) {
-    for (const o of hidden.options) hookProperty(o, 'selected', () => renderTokenizer(ctl));
+    hidden._canonOrder ??= [...hidden.options];
+    for (const o of hidden.options) hookProperty(o, 'selected', () => tkSelected(ctl));
   } else {
     hidden._canonDefault ??= nativeValue.get.call(hidden);
+    // The server's label for the initial value (it may not be among the rows).
+    const s = taState(ctl);
+    const initial = hidden._canonDefault;
+    if (initial !== '' && hidden.dataset.label && !s.labels.has(initial)) s.labels.set(initial, hidden.dataset.label);
     hookValue(hidden, () => {
       taState(ctl).editing = false;
       renderTypeahead(ctl);
