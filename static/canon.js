@@ -1,7 +1,8 @@
 // canon.js: client behaviour for canon-datastar components: overlays (Tooltip, InfoTip, Popover,
 // Dialog, DropdownMenu, TabList, Toast), content (Collapsible, Banner, Avatar, Token,
 // MetadataList, Thumbnail, Kbd, Timestamp) and forms (TextArea, Item, CheckboxList, RadioList,
-// NumberInput, Slider, FileInput, Selector). It imports ./number-parser.js, so serve both. Ports the interaction logic of Astryx (packages/core/src),
+// NumberInput, Slider, FileInput, Selector, MultiSelector, Typeahead, Tokenizer). It imports
+// ./number-parser.js, so serve both. Ports the interaction logic of Astryx (packages/core/src),
 // MIT, Meta Platforms, Inc.
 //
 // Load it before Datastar so Datastar expressions can call window.canon:
@@ -1395,6 +1396,10 @@ doc.addEventListener('reset', (e) => {
   for (const ctl of doc.querySelectorAll('.astryx-selector-control[data-multiple]')) {
     if (selParts(ctl).hidden?.form === form) multiBefore.set(ctl, selValues(ctl).join('\u0000'));
   }
+  const tokensBefore = new Map();
+  for (const ctl of doc.querySelectorAll('.astryx-tokenizer')) {
+    if (taParts(ctl).hidden?.form === form) tokensBefore.set(ctl, tkChosen(ctl).map((o) => o.value).join('\u0000'));
+  }
   setTimeout(() => {
     if (e.defaultPrevented) return; // a listener cancelled the reset
     for (const el of form.elements) {
@@ -1423,6 +1428,20 @@ doc.addEventListener('reset', (e) => {
       }
       restoreDefault(hidden);
       renderSelector(ctl);
+      notify(hidden);
+    }
+    for (const ctl of doc.querySelectorAll('.astryx-search-control')) {
+      const { hidden } = taParts(ctl);
+      if (hidden?.form !== form) continue;
+      taState(ctl).editing = false;
+      taClose(ctl);
+      if (tokensBefore.has(ctl)) {
+        renderTokenizer(ctl);
+        if (tokensBefore.get(ctl) !== tkChosen(ctl).map((o) => o.value).join('\u0000')) taNotify(hidden);
+        continue;
+      }
+      restoreDefault(hidden);
+      renderTypeahead(ctl);
       notify(hidden);
     }
     for (const ctl of doc.querySelectorAll('.astryx-slider-control')) {
@@ -3005,6 +3024,564 @@ function wireSelector(ctl) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Typeahead and Tokenizer: a search input over a results listbox in a manual popover. Rows carry
+// data-id/data-label (and data-keywords on static lists). A static list is filtered here; a
+// remote one ([data-remote]) asks with a debounced "astryx-search" event and shows the listbox
+// the server patches in once its data-query matches the query. Rows are reached with
+// aria-activedescendant, so focus stays in the input.
+
+const taCtl = (t) => (t instanceof Element ? t.closest('.astryx-search-control') : null);
+function taParts(ctl) {
+  const input = ctl.querySelector('.astryx-search-input');
+  const id = input?.id ?? '';
+  return {
+    input,
+    popup: id ? doc.getElementById(`${id}-popup`) : null,
+    listbox: id ? doc.getElementById(`${id}-listbox`) : null,
+    live: id ? doc.getElementById(`${id}-live`) : null,
+    hidden: ctl.querySelector('.astryx-typeahead-value, .astryx-tokenizer-value'),
+    spinner: ctl.querySelector('.astryx-search-spinner'),
+    clear: ctl.querySelector('[data-search-clear]'),
+  };
+}
+const taIsTokenizer = (ctl) => ctl.classList.contains('astryx-tokenizer');
+const taDisabled = (ctl) => ctl.hasAttribute('data-disabled');
+function taState(ctl) {
+  ctl._canonTa ??= { want: false, active: null, keyboard: false, timer: 0, sent: null, editing: false, announced: '', labels: new Map() };
+  return ctl._canonTa;
+}
+const taRows = (ctl) => [...(taParts(ctl).listbox?.querySelectorAll(':scope > [role="option"][data-id]') ?? [])];
+const taRowLabel = (r) => r.dataset.label ?? r.dataset.id ?? '';
+const taAnnounce = (ctl, message) => {
+  const { live } = taParts(ctl);
+  if (live && live.textContent !== message) live.textContent = message;
+};
+/** The Tokenizer's chosen options, in token order. */
+const tkChosen = (ctl) => [...(taParts(ctl).hidden?.options ?? [])].filter((o) => o.selected);
+const tkAtMax = (ctl) => {
+  const max = Number(ctl.dataset.maxEntries);
+  return max > 0 && tkChosen(ctl).length >= max;
+};
+/** Typeahead: an item is picked and its token shows (not while editing the search). */
+const taShowsToken = (ctl) => !taIsTokenizer(ctl) && (taParts(ctl).hidden?.value ?? '') !== '' && !taState(ctl).editing;
+
+/** The query is long enough to search (or empty with entries on focus). */
+function taSearchable(ctl, query) {
+  const q = query.trim();
+  if (q === '') return ctl.hasAttribute('data-entries-on-focus');
+  return q.length >= (Number(ctl.dataset.minQuery) || 1);
+}
+
+/** Ask the server for results (remote lists), now or after the debounce. */
+function taRequest(ctl, now) {
+  const s = taState(ctl);
+  clearTimeout(s.timer);
+  s.timer = 0;
+  if (!ctl.hasAttribute('data-remote')) return;
+  const query = taParts(ctl).input?.value.trim() ?? '';
+  if (!s.want || !taSearchable(ctl, query)) return;
+  const send = () => {
+    s.timer = 0;
+    if (s.sent === query && taParts(ctl).listbox?.dataset.query === query) return taRefresh(ctl);
+    s.sent = query;
+    ctl.dispatchEvent(new CustomEvent('astryx-search', { bubbles: true, detail: { query } }));
+    taRefresh(ctl);
+  };
+  if (now) send();
+  else s.timer = setTimeout(send, Number(ctl.dataset.debounce) || 150);
+}
+
+function taHighlight(ctl, row, keyboard) {
+  const s = taState(ctl);
+  if (keyboard !== undefined) s.keyboard = keyboard;
+  if (s.active !== row) {
+    s.active?.removeAttribute('data-highlighted');
+    s.active?.removeAttribute('data-keyboard');
+    s.active = row;
+  }
+  if (row) {
+    if (!row.hasAttribute('data-highlighted')) row.setAttribute('data-highlighted', '');
+    if (row.hasAttribute('data-keyboard') !== s.keyboard) row.toggleAttribute('data-keyboard', s.keyboard);
+  }
+  const { input } = taParts(ctl);
+  if (input) attrTo(input, 'aria-activedescendant', row?.id || null);
+}
+
+/** Bring the results, the popover, the spinner and the announcement up to date. Writes only on
+ * change: it runs from mutation observers. */
+function taRefresh(ctl) {
+  const s = taState(ctl);
+  const { input, popup, listbox, spinner } = taParts(ctl);
+  if (!input || !popup || !listbox) return;
+  const tokenizer = taIsTokenizer(ctl);
+  const query = input.value.trim();
+  const lower = query.toLowerCase();
+  const remote = ctl.hasAttribute('data-remote');
+  const searchable = s.want && !taDisabled(ctl) && !(tokenizer && tkAtMax(ctl)) && taSearchable(ctl, input.value);
+  // A remote answer counts once it's for this query and no newer request is waiting.
+  const fresh = !remote || (!s.timer && listbox.dataset.query === query);
+  const answered = searchable && fresh;
+  const chosen = tokenizer ? new Set(tkChosen(ctl).map((o) => o.value)) : null;
+  const chosenLabels = tokenizer ? new Set(tkChosen(ctl).map((o) => o.textContent.toLowerCase())) : null;
+  const max = Number(ctl.dataset.maxItems) || 10;
+  const value = tokenizer ? '' : (taParts(ctl).hidden?.value ?? '');
+  const shown = [];
+  let exact = false;
+  for (const r of taRows(ctl)) {
+    const label = taRowLabel(r).toLowerCase();
+    let match = answered && (remote || lower === '' || label.includes(lower) ||
+      (r.dataset.keywords ?? '').split('|').some((k) => k !== '' && k.toLowerCase().includes(lower)));
+    if (match && chosen?.has(r.dataset.id ?? '')) match = false;
+    // An exact match past the cap still blocks creating the query.
+    if (match && label === lower) exact = true;
+    if (match && shown.length < max) shown.push(r);
+    if (r.hidden !== !shown.includes(r)) r.hidden = !shown.includes(r);
+    attrTo(r, 'aria-selected', String(!tokenizer && value !== '' && r.dataset.id === value));
+  }
+  // Tokenizer: offer the query itself after the results.
+  let create = listbox.querySelector(':scope > [data-create]');
+  const creating = answered && ctl.hasAttribute('data-create') && query !== '' &&
+    !exact && !chosen.has(query) && !chosenLabels.has(lower);
+  if (creating && !create) {
+    const tpl = popup.querySelector('template.astryx-tokenizer-create-template');
+    create = tpl?.content.firstElementChild?.cloneNode(true) ?? null;
+    if (create) {
+      create.id = `${listbox.id}-create`;
+      listbox.append(create);
+    }
+  }
+  if (create) {
+    if (create !== listbox.lastElementChild) listbox.append(create);
+    if (create.hidden !== !creating) create.hidden = !creating;
+    attrTo(create, 'data-query', creating ? query : '');
+    const label = create.querySelector('.astryx-typeahead-item-label');
+    const text = creating ? `Create "${query}"` : '';
+    if (label && label.textContent !== text) label.textContent = text;
+  }
+  const empty = listbox.querySelector(':scope > .astryx-typeahead-empty-state');
+  const isEmpty = answered && query !== '' && shown.length === 0 && !creating;
+  if (empty) {
+    if (empty.hidden !== !isEmpty) empty.hidden = !isEmpty;
+    const text = ctl.dataset.emptySearchText ?? '';
+    if (empty.textContent !== text) empty.textContent = text;
+  }
+  const loading = searchable && remote && !fresh && !s.timer;
+  if (spinner && spinner.hidden !== !loading) spinner.hidden = !loading;
+  attrTo(input, 'aria-busy', loading ? 'true' : null);
+  const open = answered && (shown.length > 0 || creating || query !== '');
+  if (open) {
+    popup._canonAnchor = ctl;
+    safeShow(popup);
+  } else safeHide(popup);
+  attrTo(input, 'aria-expanded', String(open));
+  // Keep the highlight on the same row while it stays; else start at the top.
+  const nav = [...shown, ...(creating && create ? [create] : [])];
+  if (!open) taHighlight(ctl, null);
+  else if (!nav.includes(s.active)) taHighlight(ctl, nav[0] ?? null);
+  // Announce the result count once per answered query.
+  const key = answered ? `${query}\u0000${shown.length}` : '';
+  if (key !== s.announced) {
+    s.announced = key;
+    if (answered && query !== '') taAnnounce(ctl, shown.length > 0 ? `${shown.length} ${shown.length === 1 ? 'result' : 'results'}` : '');
+  }
+}
+
+/** The visible rows the keyboard moves over (results, then the create row). */
+const taNav = (ctl) =>
+  [...(taParts(ctl).listbox?.querySelectorAll(':scope > [role="option"]:not([hidden]):not([aria-disabled="true"])') ?? [])];
+
+function taClose(ctl) {
+  const s = taState(ctl);
+  s.want = false;
+  clearTimeout(s.timer);
+  s.timer = 0;
+  taRefresh(ctl);
+}
+
+function taSetQuery(ctl, query) {
+  const { input } = taParts(ctl);
+  if (!input) return;
+  input.value = query;
+  const s = taState(ctl);
+  s.want = true;
+  taRequest(ctl, false);
+  taRefresh(ctl);
+}
+
+/** Typeahead: render the token and the input around the picked value. */
+function renderTypeahead(ctl) {
+  const { input, hidden, clear } = taParts(ctl);
+  if (!input || !hidden) return;
+  const s = taState(ctl);
+  const value = hidden.value;
+  // The label: a picked row's, a remembered pick's, the server's for its value, else the id.
+  let label = value;
+  if (value !== '') {
+    const row = taRows(ctl).find((r) => r.dataset.id === value);
+    label = s.labels.get(value) ?? (row ? taRowLabel(row) : hidden.dataset.label || value);
+  }
+  attrTo(hidden, 'data-label', label);
+  const showToken = value !== '' && !s.editing;
+  const wrap = ctl.querySelector('.astryx-typeahead-token');
+  if (wrap && wrap.hidden !== !showToken) wrap.hidden = !showToken;
+  const tokenLabel = wrap?.querySelector('.astryx-token-label');
+  if (tokenLabel && tokenLabel.textContent !== label) tokenLabel.textContent = label;
+  const tokenValue = doc.getElementById(`${input.id}-token-value`);
+  if (tokenValue && tokenValue.textContent !== label) tokenValue.textContent = label;
+  attrTo(input, 'tabindex', showToken ? '-1' : null);
+  attrTo(input, 'placeholder', showToken ? null : (input.dataset.placeholderText ?? null));
+  if (ctl.hasAttribute('data-has-value') !== (value !== '')) ctl.toggleAttribute('data-has-value', value !== '');
+  if (clear && clear.hidden !== (value === '')) clear.hidden = value === '';
+}
+
+/** Tokenizer: tokens for the chosen options (in order), the clear button and the max state. */
+function renderTokenizer(ctl) {
+  const { input, popup, clear } = taParts(ctl);
+  if (!input) return;
+  const chosen = tkChosen(ctl);
+  const current = [...ctl.querySelectorAll(':scope > .astryx-tokenizer-token')];
+  const key = chosen.map((o) => o.value).join('\u0000');
+  if (current.map((t) => t.dataset.id).join('\u0000') !== key) {
+    const tpl = popup?.querySelector('template.astryx-tokenizer-token-template');
+    const byId = new Map(current.map((t) => [t.dataset.id, t]));
+    for (const o of chosen) {
+      let t = byId.get(o.value);
+      byId.delete(o.value);
+      if (!t && tpl) {
+        t = tpl.content.firstElementChild.cloneNode(true);
+        t.dataset.id = o.value;
+        const label = o.textContent || o.value;
+        t.querySelector('.astryx-token-label').textContent = label;
+        t.querySelector('.astryx-token-remove')?.setAttribute('aria-label', `Remove ${label}`);
+      }
+      if (t) ctl.insertBefore(t, input);
+    }
+    for (const t of byId.values()) t.remove();
+  }
+  const has = chosen.length > 0;
+  if (ctl.hasAttribute('data-has-tokens') !== has) ctl.toggleAttribute('data-has-tokens', has);
+  attrTo(input, 'placeholder', has ? null : (input.dataset.placeholderText ?? null));
+  if (clear && clear.hidden !== !has) clear.hidden = !has;
+  const atMax = tkAtMax(ctl);
+  if (ctl.hasAttribute('data-at-max') !== atMax) ctl.toggleAttribute('data-at-max', atMax);
+  if (input.hasAttribute('data-at-max') !== atMax) input.toggleAttribute('data-at-max', atMax);
+  if (!taDisabled(ctl) && input.readOnly !== atMax) input.readOnly = atMax;
+  const limit = doc.getElementById(`${input.id}-limit`);
+  if (limit) {
+    const ids = (input.getAttribute('aria-describedby') ?? '').split(' ').filter((x) => x && x !== limit.id);
+    if (atMax) ids.push(limit.id);
+    attrTo(input, 'aria-describedby', ids.join(' ') || null);
+  }
+}
+
+const renderSearch = (ctl) => (taIsTokenizer(ctl) ? renderTokenizer(ctl) : renderTypeahead(ctl));
+
+function taNotify(hidden) {
+  hidden.dispatchEvent(new Event('input', { bubbles: true }));
+  hidden.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/** Typeahead: pick a row (or clear with null). */
+function taPick(ctl, row) {
+  const { input, hidden } = taParts(ctl);
+  if (!input || !hidden || taDisabled(ctl)) return;
+  const s = taState(ctl);
+  const id = row?.dataset.id ?? '';
+  if (row) s.labels.set(id, taRowLabel(row));
+  s.editing = false;
+  input.value = '';
+  taClose(ctl);
+  if (nativeValue.get.call(hidden) !== id) {
+    nativeValue.set.call(hidden, id);
+    renderTypeahead(ctl);
+    taNotify(hidden);
+  } else renderTypeahead(ctl);
+  // The token shows now (rendered above), so it can take focus right away.
+  if (row) ctl.querySelector('.astryx-typeahead-token .astryx-token-inner')?.focus();
+  else input.focus();
+}
+
+/** Typeahead: search again from the picked item's label. */
+function taEdit(ctl) {
+  const { input, hidden } = taParts(ctl);
+  if (!input || !hidden || taDisabled(ctl) || hidden.value === '') return;
+  const s = taState(ctl);
+  // Focus first, so the token's removal isn't read as focus leaving the field.
+  input.focus();
+  s.editing = true;
+  renderTypeahead(ctl);
+  taSetQuery(ctl, hidden.dataset.label || hidden.value);
+  input.setSelectionRange(0, input.value.length);
+}
+
+function taEndEdit(ctl, focusToken) {
+  const s = taState(ctl);
+  if (!s.editing) return;
+  s.editing = false;
+  taParts(ctl).input.value = '';
+  taClose(ctl);
+  renderTypeahead(ctl);
+  if (focusToken) ctl.querySelector('.astryx-typeahead-token .astryx-token-inner')?.focus();
+}
+
+/** Tokenizer: add a row (or the create row). */
+function tkAdd(ctl, row) {
+  const { input, hidden } = taParts(ctl);
+  if (!input || !hidden || taDisabled(ctl) || tkAtMax(ctl)) return;
+  const create = row.hasAttribute('data-create');
+  const id = create ? (row.dataset.query ?? '') : (row.dataset.id ?? '');
+  const label = create ? id : taRowLabel(row);
+  if (!id) return;
+  const chosen = tkChosen(ctl);
+  if (chosen.some((o) => o.value === id || (create && o.textContent.toLowerCase() === id.toLowerCase()))) return;
+  let opt = [...hidden.options].find((o) => o.value === id);
+  if (!opt) {
+    opt = new Option(label, id);
+    hookProperty(opt, 'selected', () => renderTokenizer(ctl));
+  }
+  // Chosen options come first, in the order they were added.
+  const after = chosen.at(-1)?.nextSibling ?? hidden.firstChild;
+  if (opt !== after) hidden.insertBefore(opt, after);
+  opt.selected = true;
+  renderTokenizer(ctl);
+  taNotify(hidden);
+  if (create) ctl.dispatchEvent(new CustomEvent('astryx-create', { bubbles: true, detail: { query: id } }));
+  input.value = '';
+  const s = taState(ctl);
+  // Keep offering entries while the field stays focused.
+  s.want = ctl.hasAttribute('data-entries-on-focus') && !tkAtMax(ctl);
+  taRequest(ctl, true);
+  taRefresh(ctl);
+  taAnnounce(ctl, `Added ${label}`);
+  input.focus();
+}
+
+function tkRemove(ctl, ids, message) {
+  const { input, hidden } = taParts(ctl);
+  if (!input || !hidden || taDisabled(ctl)) return;
+  let changed = false;
+  for (const o of hidden.options) {
+    if (o.selected && ids.includes(o.value)) {
+      o.selected = false;
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  renderTokenizer(ctl);
+  taNotify(hidden);
+  taAnnounce(ctl, message);
+  input.focus();
+  // Removed items can be offered again.
+  const s = taState(ctl);
+  if (popupOpen(taParts(ctl).popup) || (input.value === '' && ctl.hasAttribute('data-entries-on-focus'))) {
+    s.want = true;
+    taRequest(ctl, true);
+  }
+  taRefresh(ctl);
+}
+const popupOpen = (p) => p?.matches(':popover-open') ?? false;
+
+function taActivate(ctl, row) {
+  if (!row || row.getAttribute('aria-disabled') === 'true') return;
+  if (taIsTokenizer(ctl)) tkAdd(ctl, row);
+  else taPick(ctl, row);
+}
+
+doc.addEventListener('input', (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLInputElement) || !t.matches('.astryx-search-input')) return;
+  const ctl = taCtl(t);
+  if (!ctl || taDisabled(ctl)) return;
+  taState(ctl).keyboard = true;
+  taSetQuery(ctl, t.value);
+});
+
+doc.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  const ctl = taCtl(t);
+  if (!ctl || e.isComposing || taDisabled(ctl)) return;
+  const s = taState(ctl);
+  const { input, hidden, popup } = taParts(ctl);
+  // Typeahead token: Backspace or Delete clears it, or edits the search without a clear button.
+  if (t.closest('.astryx-typeahead-token') && (e.key === 'Backspace' || e.key === 'Delete')) {
+    e.preventDefault();
+    if (taParts(ctl).clear) {
+      const label = hidden?.dataset.label ?? '';
+      taPick(ctl, null);
+      taAnnounce(ctl, `Cleared ${label}`);
+    } else taEdit(ctl);
+    return;
+  }
+  if (t !== input || e.defaultPrevented) return;
+  s.keyboard = true;
+  if (taIsTokenizer(ctl) && e.key === 'Backspace' && input.value === '') {
+    const last = tkChosen(ctl).at(-1);
+    if (last) {
+      e.preventDefault();
+      tkRemove(ctl, [last.value], `Removed ${last.textContent || last.value}`);
+    }
+    return;
+  }
+  const open = popupOpen(popup);
+  if (!open) {
+    if (e.key === 'Escape') {
+      if (s.want) {
+        // A pending search: drop it (and consume the key so an enclosing dialog stays).
+        e.preventDefault();
+        taClose(ctl);
+      } else if (s.editing) {
+        e.preventDefault();
+        taEndEdit(ctl, true);
+      }
+    } else if (e.key === 'ArrowDown' && (ctl.hasAttribute('data-entries-on-focus') || input.value !== '')) {
+      e.preventDefault();
+      s.want = true;
+      taRequest(ctl, true);
+      taRefresh(ctl);
+    }
+    return;
+  }
+  const nav = taNav(ctl);
+  const i = s.active ? nav.indexOf(s.active) : -1;
+  switch (e.key) {
+    case 'ArrowDown':
+    case 'ArrowUp': {
+      e.preventDefault();
+      if (!nav.length) return;
+      const down = e.key === 'ArrowDown';
+      const next = down ? (i < nav.length - 1 ? i + 1 : 0) : i > 0 ? i - 1 : nav.length - 1;
+      taHighlight(ctl, nav[next], true);
+      nav[next].scrollIntoView?.({ block: 'nearest' });
+      return;
+    }
+    case 'Home':
+    case 'End':
+      e.preventDefault();
+      if (nav.length) taHighlight(ctl, e.key === 'Home' ? nav[0] : nav.at(-1), true);
+      return;
+    case 'Enter':
+      e.preventDefault();
+      if (s.active) taActivate(ctl, s.active);
+      return;
+    case 'Escape':
+      e.preventDefault();
+      taClose(ctl);
+      return;
+    case 'Tab':
+      taClose(ctl);
+  }
+});
+
+doc.addEventListener('focusin', (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLInputElement) || !t.matches('.astryx-search-input')) return;
+  const ctl = taCtl(t);
+  if (!ctl || taDisabled(ctl) || !ctl.hasAttribute('data-entries-on-focus') || t.value !== '') return;
+  if (taShowsToken(ctl) || (taIsTokenizer(ctl) && tkAtMax(ctl))) return;
+  taState(ctl).want = true;
+  taRequest(ctl, true);
+  taRefresh(ctl);
+});
+
+// Leaving the field (and its list) closes the list and ends edit mode.
+doc.addEventListener('focusout', (e) => {
+  const ctl = taCtl(e.target);
+  if (!ctl) return;
+  const next = e.relatedTarget;
+  if (next instanceof Node && ctl.contains(next)) return;
+  if (taState(ctl).editing) taEndEdit(ctl, false);
+  else taClose(ctl);
+});
+
+// A press outside the field closes its list.
+doc.addEventListener(
+  'pointerdown',
+  (e) => {
+    for (const popup of doc.querySelectorAll('.astryx-search-popup:popover-open')) {
+      const ctl = taCtl(popup);
+      if (ctl && !(e.target instanceof Node && ctl.contains(e.target))) taClose(ctl);
+    }
+  },
+  true,
+);
+
+// Pressing a row must not move focus out of the input.
+doc.addEventListener('mousedown', (e) => {
+  const t = e.target;
+  if (t instanceof Element && t.closest('.astryx-typeahead-dropdown, .astryx-search-control [data-search-clear]')) e.preventDefault();
+});
+
+doc.addEventListener('click', (e) => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  const ctl = taCtl(t);
+  if (!ctl) return;
+  const row = t.closest('.astryx-typeahead-dropdown > [role="option"]');
+  if (row) {
+    taActivate(ctl, row);
+    return;
+  }
+  if (t.closest('.astryx-search-popup')) return;
+  const { input } = taParts(ctl);
+  if (t.closest('[data-search-clear]')) {
+    if (taIsTokenizer(ctl)) tkRemove(ctl, tkChosen(ctl).map((o) => o.value), 'All items removed');
+    else taPick(ctl, null);
+    return;
+  }
+  const remove = t.closest('.astryx-tokenizer-token .astryx-token-remove');
+  if (remove) {
+    const token = remove.closest('.astryx-tokenizer-token');
+    const label = token.querySelector('.astryx-token-label')?.textContent ?? '';
+    tkRemove(ctl, [token.dataset.id ?? ''], `Removed ${label}`);
+    return;
+  }
+  if (taDisabled(ctl)) return;
+  if (t.closest('.astryx-typeahead-token')) {
+    taEdit(ctl);
+    return;
+  }
+  if (t.closest('button, a')) return;
+  if (taShowsToken(ctl)) taEdit(ctl);
+  else input?.focus();
+});
+
+doc.addEventListener('mousemove', (e) => {
+  const row = e.target instanceof Element ? e.target.closest('.astryx-typeahead-dropdown > [role="option"]:not([aria-disabled="true"])') : null;
+  const ctl = row && taCtl(row);
+  if (ctl && (taState(ctl).active !== row || taState(ctl).keyboard)) taHighlight(ctl, row, false);
+});
+
+/** Wire a Typeahead or Tokenizer once: hidden values Datastar (or a script) can set, and
+ * results the server patches in. */
+function wireSearch(ctl) {
+  const { hidden, popup } = taParts(ctl);
+  if (!hidden) return;
+  if (hidden instanceof HTMLSelectElement) {
+    for (const o of hidden.options) hookProperty(o, 'selected', () => renderTokenizer(ctl));
+  } else {
+    hidden._canonDefault ??= nativeValue.get.call(hidden);
+    hookValue(hidden, () => {
+      taState(ctl).editing = false;
+      renderTypeahead(ctl);
+    });
+  }
+  if (popup && !popup._canonObserved) {
+    popup._canonObserved = true;
+    let queued = false;
+    new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      queueMicrotask(() => {
+        queued = false;
+        taRefresh(ctl);
+      });
+    }).observe(popup, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-query', 'hidden'] });
+  }
+  renderSearch(ctl);
+}
+
+// ---------------------------------------------------------------------------------------------
 // Wiring markup as it appears (initial page and Datastar patches).
 
 function popoverTrigger(anchor) {
@@ -3060,6 +3637,7 @@ function scan() {
     syncRequired(g);
   }
   for (const c of doc.querySelectorAll('.astryx-selector-control')) wireSelector(c);
+  for (const c of doc.querySelectorAll('.astryx-search-control')) wireSearch(c);
   for (const n of doc.querySelectorAll('.astryx-number-input')) wireNumber(n);
   for (const s of doc.querySelectorAll('.astryx-slider-control')) wireSlider(s);
   for (const f of doc.querySelectorAll('.astryx-file-input')) renderFiles(f);

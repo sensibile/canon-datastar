@@ -126,7 +126,7 @@ func formsPage() templ.Component {
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<h1>Forms</h1><p class=\"demo-lead\">Server-rendered controls bound to Datastar signals; static/canon.js adds counters, drafts, stepping, dragging and file checks.</p><div data-signals=\"{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', fruit: 'banana', region: '', fruits: ['apple', 'fig'], tags: [], agree: false}\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<h1>Forms</h1><p class=\"demo-lead\">Server-rendered controls bound to Datastar signals; static/canon.js adds counters, drafts, stepping, dragging and file checks.</p><div data-signals=\"{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', fruit: 'banana', region: '', fruits: ['apple', 'fig'], tags: [], person: 'ada', city: '', langs: ['go', 'rust'], cities: [], agree: false}\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -542,6 +542,62 @@ func formsPage() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+			templ_7745c5c3_Err = canon.Typeahead(canon.TypeaheadProps{ID: "person", Label: "Person", Items: people(), Value: "ada",
+				HasEntriesOnFocus: true, Description: "Static list; matches keywords too (try “nasa”)",
+				ValueAttrs: []canon.Attr{canon.A("data-bind:person", "")}}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = canon.Typeahead(canon.TypeaheadProps{ID: "city", Label: "City", IsRemote: true, StartIcon: "search",
+				Description: "Searched on the server", Placeholder: "Search cities…",
+				Attrs:      []canon.Attr{canon.A("data-on:astryx-search", searchExpr("city"))},
+				ValueAttrs: []canon.Attr{canon.A("data-bind:city", "")}}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = canon.Tokenizer(canon.TokenizerProps{ID: "langs", Label: "Languages", Items: languages(),
+				Value: []canon.TypeaheadItem{{ID: "go", Label: "Go"}, {ID: "rust", Label: "Rust"}}, HasCreate: true, HasClear: true,
+				MaxEntries: 4, HasEntriesOnFocus: true, Description: "Up to 4; type a new one to create it",
+				ValueAttrs: []canon.Attr{canon.A("data-bind:langs", "")}}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = canon.Tokenizer(canon.TokenizerProps{ID: "cities", Label: "Cities", IsRemote: true, Size: "sm",
+				Attrs:      []canon.Attr{canon.A("data-on:astryx-search", searchExpr("cities"))},
+				ValueAttrs: []canon.Attr{canon.A("data-bind:cities", "")}}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = canon.Typeahead(canon.TypeaheadProps{ID: "tdisabled", Label: "Disabled", Items: people(), Value: "grace", IsDisabled: true}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div><p class=\"demo-panel\">person: <span data-text=\"$person\"></span> · city: <span data-text=\"$city\"></span> · langs: <span data-text=\"JSON.stringify($langs)\"></span> · cities: <span data-text=\"JSON.stringify($cities)\"></span> · <button type=\"button\" data-on:click=\"$person = 'grace'\">Set person</button></p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = demoSection("Typeahead and Tokenizer").Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var17 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<div class=\"demo-grid\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 			templ_7745c5c3_Err = canon.Item(canon.ItemProps{Label: "Plain row", Description: "With a description"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -559,17 +615,17 @@ func formsPage() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = demoSection("Item").Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = demoSection("Item").Render(templ.WithChildren(ctx, templ_7745c5c3_Var17), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Var17 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var18 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -591,11 +647,11 @@ func formsPage() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = demoSection("Submit").Render(templ.WithChildren(ctx, templ_7745c5c3_Var17), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = demoSection("Submit").Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -1,0 +1,195 @@
+/* Typeahead and Tokenizer. Port of Astryx packages/core/src/Typeahead and Tokenizer
+ * (MIT, Meta Platforms, Inc.).
+ *   <div class="astryx-typeahead astryx-search-control" data-size [data-status] [data-disabled]>
+ *     [start icon] <div class="astryx-typeahead-lane"> [token] <input type="hidden"> <input class="astryx-search-input"> </div>
+ *     <span class="astryx-search-end"> spinner, [clear], [status icon] </span>
+ *     <span class="astryx-search-live"> <div popover="manual" class="astryx-layer astryx-search-popup">
+ *       <div role="listbox" class="astryx-typeahead-dropdown"> empty state, rows (.astryx-typeahead-option)
+ *   Tokenizer: class "astryx-tokenizer astryx-search-control"; tokens (.astryx-tokenizer-token) and
+ *   the input sit directly in the control, followed by a hidden <select multiple>.
+ * static/canon.js shows matching rows and writes data-highlighted / data-keyboard on them. */
+@layer astryx-base {
+  .astryx-search-control {
+    box-sizing: border-box;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    width: 100%;
+    padding-block: calc(var(--spacing-1) - 1px);
+    padding-inline: var(--spacing-2);
+    border: var(--border-width) solid var(--color-border-emphasized);
+    --_field-radius: var(--radius-element);
+    border-radius: var(--_field-radius);
+    background-color: var(--color-background-surface);
+    font-family: var(--font-family-body);
+    color: var(--color-text-primary);
+    transition-property: border-color, box-shadow;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+    cursor: text;
+  }
+  .astryx-tokenizer.astryx-search-control { flex-wrap: wrap; }
+  .astryx-tokenizer[data-has-tokens] { padding-inline-start: calc(var(--spacing-1) - 1px); row-gap: calc(var(--spacing-1) - 1px); }
+  @media (prefers-reduced-motion: reduce), (pointer: coarse) {
+    .astryx-search-control { transition-duration: 0s; }
+  }
+  .astryx-search-control[data-size='sm'] { min-height: var(--size-element-sm); }
+  .astryx-search-control[data-size='md'] { min-height: var(--size-element-md); }
+  .astryx-search-control[data-size='lg'] { min-height: var(--size-element-lg); }
+  @media (hover: hover) {
+    .astryx-search-control:not([data-disabled]):hover:not(:focus-within) {
+      box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-border-emphasized) 30%, transparent);
+    }
+    .astryx-search-control[data-status='warning']:not([data-disabled]):hover:not(:focus-within) { box-shadow: var(--shadow-inset-warning); }
+    .astryx-search-control[data-status='error']:not([data-disabled]):hover:not(:focus-within) { box-shadow: var(--shadow-inset-error); }
+    .astryx-search-control[data-status='success']:not([data-disabled]):hover:not(:focus-within) { box-shadow: var(--shadow-inset-success); }
+  }
+  .astryx-search-control:focus-within:not([data-disabled]) {
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 2px var(--color-accent-muted);
+  }
+  @media (forced-colors: active) {
+    .astryx-search-control:focus-within { border-color: Highlight; }
+  }
+  .astryx-search-control[data-status='warning'] { border-color: var(--color-border-warning); }
+  .astryx-search-control[data-status='error'] { border-color: var(--color-border-error); }
+  .astryx-search-control[data-status='success'] { border-color: var(--color-border-success); }
+  .astryx-search-control[data-disabled] { cursor: default; opacity: 0.5; }
+  .astryx-search-control[data-astryx-input-group-item] { flex: 1; min-width: 0; }
+  .astryx-tokenizer[data-astryx-input-group-item] { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .astryx-search-control[data-astryx-input-group-item][data-disabled] { opacity: 1; }
+
+  .astryx-search-start { display: inline-flex; }
+  .astryx-tokenizer[data-has-tokens] > .astryx-search-start { margin-inline-start: calc(var(--spacing-2) - var(--spacing-1) + 1px); }
+  .astryx-typeahead-lane {
+    position: relative;
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    flex: 1;
+    min-width: 0;
+    padding-inline-start: calc(var(--spacing-1) - 1px);
+  }
+  .astryx-typeahead-token {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    display: flex;
+    align-items: center;
+    max-width: 100%;
+  }
+  .astryx-typeahead-token[hidden], .astryx-tokenizer-token[hidden] { display: none; }
+  .astryx-tokenizer-token { display: flex; flex-shrink: 0; max-width: 100%; }
+  .astryx-search-input {
+    box-sizing: border-box;
+    display: block;
+    flex: 1;
+    min-width: 0;
+    border: 0 none;
+    padding: 0;
+    font-family: var(--font-family-body);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    color: var(--color-text-primary);
+    background-color: transparent;
+    outline: none;
+  }
+  .astryx-tokenizer .astryx-search-input { flex: 1 1 40px; min-width: 40px; width: 0; }
+  .astryx-tokenizer[data-has-tokens] .astryx-search-input { padding-inline-start: calc(var(--spacing-2) - var(--spacing-1) + 1px); }
+  @media (pointer: coarse) {
+    @supports (-webkit-touch-callout: none) {
+      .astryx-search-input { font-size: max(1rem, var(--text-body-size)); }
+    }
+  }
+  .astryx-search-input::placeholder { color: var(--color-text-secondary); }
+  .astryx-typeahead[data-has-value] .astryx-search-input[tabindex='-1'] { opacity: 0; pointer-events: none; }
+  .astryx-search-input[data-at-max] { flex: 0 0 0; min-width: 0; width: 0; opacity: 0; position: absolute; }
+  [data-disabled] > * > .astryx-search-input, [data-disabled] > .astryx-search-input { cursor: default; }
+  .astryx-search-end { display: flex; align-items: center; gap: var(--spacing-1); margin-inline-start: auto; flex-shrink: 0; }
+  .astryx-tokenizer .astryx-search-end { gap: var(--spacing-2); }
+  .astryx-tokenizer[data-has-tokens] .astryx-search-end { margin-inline-end: calc(var(--spacing-2) - var(--spacing-1) + 1px); }
+  .astryx-search-end:not(:has(> :not([hidden]))) { display: none; }
+  .astryx-search-spinner { display: inline-flex; }
+  .astryx-search-spinner[hidden], .astryx-search-control [data-search-clear][hidden] { display: none; }
+  .astryx-search-control .astryx-input-clear-button { height: 20px; color: var(--color-icon-secondary); }
+
+  .astryx-layer.astryx-search-popup {
+    /* It sits inside the control in the DOM; don't inherit its cursor. */
+    cursor: auto;
+    box-sizing: border-box;
+    flex-direction: column;
+    background-color: var(--color-background-popover);
+    color: var(--color-text-primary);
+    border-radius: var(--radius-container);
+    box-shadow: var(--shadow-low);
+    overflow: hidden;
+  }
+  .astryx-layer.astryx-search-popup:popover-open { display: flex; }
+  @media (forced-colors: active) {
+    .astryx-layer.astryx-search-popup { border: 1px solid CanvasText; }
+  }
+  .astryx-typeahead-dropdown {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    max-height: min(300px, calc(100vh - 16px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--spacing-1);
+    outline: none;
+  }
+  .astryx-typeahead-option {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    width: 100%;
+    padding: var(--spacing-2);
+    border-radius: var(--radius-element);
+    font-family: var(--font-family-body);
+    font-size: var(--text-label-size);
+    line-height: var(--text-label-leading);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    outline: none;
+    user-select: none;
+  }
+  .astryx-typeahead-option[hidden], .astryx-typeahead-empty-state[hidden] { display: none; }
+  [data-size='sm'] .astryx-typeahead-option { padding-block: var(--spacing-1); }
+  [data-size='md'] .astryx-typeahead-option { padding-block: var(--spacing-1-5); }
+  .astryx-typeahead-option[data-highlighted] { background-color: var(--color-overlay-hover); }
+  .astryx-typeahead-option[data-keyboard] {
+    outline: var(--focus-outline-width) var(--focus-outline-style) var(--focus-outline-color);
+    outline-offset: calc(-1 * var(--focus-outline-width));
+  }
+  .astryx-typeahead-option[aria-selected='true'] { font-weight: var(--font-weight-medium); }
+  .astryx-typeahead-option-content { flex: 1; min-width: 0; }
+  .astryx-typeahead-check { display: inline-flex; }
+  .astryx-typeahead-option:not([aria-selected='true']) > .astryx-typeahead-check { display: none; }
+  .astryx-typeahead-item { display: flex; align-items: center; gap: var(--spacing-2); min-height: 0; min-width: 0; }
+  .astryx-typeahead-item-content { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .astryx-typeahead-item-label,
+  .astryx-typeahead-item-description { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .astryx-typeahead-item-label {
+    font-size: var(--text-label-size);
+    line-height: var(--text-label-leading);
+    color: var(--color-text-primary);
+  }
+  .astryx-typeahead-option[aria-selected='true'] .astryx-typeahead-item-label { font-weight: var(--font-weight-medium); }
+  .astryx-typeahead-option:not([aria-selected='true']) .astryx-typeahead-item-label { font-weight: var(--font-weight-normal); }
+  .astryx-typeahead-item-description {
+    font-size: var(--text-supporting-size);
+    line-height: var(--text-supporting-leading);
+    color: var(--color-text-secondary);
+  }
+  .astryx-typeahead-empty-state {
+    padding: var(--spacing-3);
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-body);
+    font-size: var(--text-label-size);
+    line-height: var(--text-label-leading);
+  }
+}

@@ -271,6 +271,140 @@ fn multi_selectors() -> Markup {
     }
 }
 
+/// A static Typeahead list with descriptions and keywords.
+fn people() -> Vec<TypeaheadItem> {
+    let p = |id: &str, label: &str, desc: &str, kw: &[&str]| TypeaheadItem {
+        description: s(desc),
+        keywords: kw.iter().map(|k| s(k)).collect(),
+        ..TypeaheadItem::new(id, label)
+    };
+    vec![
+        p("ada", "Ada Lovelace", "Analytical Engine", &["math"]),
+        p("alan", "Alan Turing", "Computability", &["enigma"]),
+        p("grace", "Grace Hopper", "Compilers", &["cobol", "navy"]),
+        p("edsger", "Edsger Dijkstra", "Shortest paths", &[]),
+        p("barbara", "Barbara Liskov", "Substitution", &[]),
+        p("donald", "Donald Knuth", "TeX", &["taocp"]),
+        p(
+            "margaret",
+            "Margaret Hamilton",
+            "Apollo software",
+            &["nasa"],
+        ),
+        p("ken", "Ken Thompson", "Unix, Go", &[]),
+    ]
+}
+
+/// A static Tokenizer list.
+fn languages() -> Vec<TypeaheadItem> {
+    [
+        ("go", "Go"),
+        ("rust", "Rust"),
+        ("ts", "TypeScript"),
+        ("py", "Python"),
+        ("zig", "Zig"),
+        ("c", "C"),
+        ("kt", "Kotlin"),
+        ("swift", "Swift"),
+        ("ex", "Elixir"),
+        ("hs", "Haskell"),
+    ]
+    .iter()
+    .map(|(id, l)| TypeaheadItem::new(id, l))
+    .collect()
+}
+
+const CITY_NAMES: &[&str] = &[
+    "Amsterdam",
+    "Athens",
+    "Bangkok",
+    "Barcelona",
+    "Berlin",
+    "Bogotá",
+    "Buenos Aires",
+    "Busan",
+    "Cairo",
+    "Cape Town",
+    "Chicago",
+    "Copenhagen",
+    "Daejeon",
+    "Delhi",
+    "Dublin",
+    "Helsinki",
+    "Istanbul",
+    "Jakarta",
+    "Lagos",
+    "Lima",
+    "Lisbon",
+    "London",
+    "Los Angeles",
+    "Madrid",
+    "Melbourne",
+    "Mexico City",
+    "Montréal",
+    "Mumbai",
+    "Nairobi",
+    "New York",
+    "Osaka",
+    "Oslo",
+    "Paris",
+    "Prague",
+    "Rome",
+    "San Francisco",
+    "Santiago",
+    "São Paulo",
+    "Seoul",
+    "Singapore",
+    "Stockholm",
+    "Sydney",
+    "Taipei",
+    "Tokyo",
+    "Toronto",
+    "Vienna",
+    "Warsaw",
+    "Zürich",
+];
+
+/// The demo's server-side search: a case-insensitive substring match.
+pub(crate) fn search_cities(query: &str) -> Vec<TypeaheadItem> {
+    let q = query.trim().to_lowercase();
+    CITY_NAMES
+        .iter()
+        .filter(|c| q.is_empty() || c.to_lowercase().contains(&q))
+        .map(|c| TypeaheadItem::new(&c.to_lowercase().replace(' ', "-"), c))
+        .collect()
+}
+
+/// Asks /demo/search for the results of the query in an "astryx-search" event.
+fn search_expr(id: &str) -> Vec<Attr> {
+    vec![attr(
+        "data-on:astryx-search",
+        &format!("@get('/demo/search?id={id}&q=' + encodeURIComponent(evt.detail.query))"),
+    )]
+}
+
+fn searches() -> Markup {
+    html! {
+        div.demo-grid {
+            (typeahead(&TypeaheadProps { id: s("person"), label: s("Person"), items: people(), value: s("ada"),
+                has_entries_on_focus: true, description: s("Static list; matches keywords too (try “nasa”)"),
+                value_attrs: bind("person"), ..Default::default() }))
+            (typeahead(&TypeaheadProps { id: s("city"), label: s("City"), is_remote: true, start_icon: s("search"),
+                description: s("Searched on the server"), placeholder: s("Search cities…"),
+                attrs: search_expr("city"), value_attrs: bind("city"), ..Default::default() }))
+            (tokenizer(&TokenizerProps { id: s("langs"), label: s("Languages"), items: languages(),
+                value: vec![TypeaheadItem::new("go", "Go"), TypeaheadItem::new("rust", "Rust")], has_create: true, has_clear: true,
+                max_entries: 4, has_entries_on_focus: true, description: s("Up to 4; type a new one to create it"),
+                value_attrs: bind("langs"), ..Default::default() }))
+            (tokenizer(&TokenizerProps { id: s("cities"), label: s("Cities"), is_remote: true, size: s("sm"),
+                attrs: search_expr("cities"), value_attrs: bind("cities"), ..Default::default() }))
+            (typeahead(&TypeaheadProps { id: s("tdisabled"), label: s("Disabled"), items: people(), value: s("grace"),
+                is_disabled: true, ..Default::default() }))
+        }
+        p.demo-panel { "person: " span data-text="$person" {} " · city: " span data-text="$city" {} " · langs: " span data-text="JSON.stringify($langs)" {} " · cities: " span data-text="JSON.stringify($cities)" {} " · " button type="button" data-on:click="$person = 'grace'" { "Set person" } }
+    }
+}
+
 fn items() -> Markup {
     let qty = || Some(vec![attr("data-on:click", "$qty++")]);
     html! {
@@ -289,7 +423,7 @@ pub(crate) fn page() -> Markup {
     html! {
         h1 { "Forms" }
         p.demo-lead { "Server-rendered controls bound to Datastar signals; static/canon.js adds counters, drafts, stepping, dragging and file checks." }
-        div data-signals="{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', fruit: 'banana', region: '', fruits: ['apple', 'fig'], tags: [], agree: false}" {
+        div data-signals="{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', fruit: 'banana', region: '', fruits: ['apple', 'fig'], tags: [], person: 'ada', city: '', langs: ['go', 'rust'], cities: [], agree: false}" {
             (section("TextArea", text_areas()))
             (section("NumberInput", number_inputs()))
             (section("InputGroup", input_groups()))
@@ -298,6 +432,7 @@ pub(crate) fn page() -> Markup {
             (section("FileInput", file_inputs()))
             (section("Selector", selectors()))
             (section("MultiSelector", multi_selectors()))
+            (section("Typeahead and Tokenizer", searches()))
             (section("Item", items()))
             (section("Submit", html! {
                 (button(&ButtonProps { label: s("Send signals"), variant: s("primary"),

@@ -185,7 +185,7 @@ content (`tooltip-<slug>`) or fixed (`popover`, `menu`).
 - Form: `Field`, `FieldLabel`, `FieldStatusMessage` / `field_status`, `TextInput`, `TextArea`,
   `NumberInput`, `InputGroup`, `InputGroupText`, `CheckboxInput`, `CheckboxList`, `Switch`, `RadioList`,
   `Slider`, `FileInput`, `Selector` (with `SelectorOption`, `SelectorSection`, `SelectorDivider`),
-  `MultiSelector`
+  `MultiSelector`, `Typeahead` (with `TypeaheadItem`, `TypeaheadResults`), `Tokenizer`
 - List: `Item`
 - Overlay: `Tooltip`, `InfoTip`, `Popover`, `Dialog`, `DialogHeader`, `DropdownMenu`,
   `DropdownMenuItem`, `DropdownMenuGroup`, `DropdownMenuDivider`, `TabList` (with `TabProps`),
@@ -204,14 +204,23 @@ icons, Button tooltips, touch long-press and bottom-sheet presentation, menu sub
 checkbox/radio items, tab overflow arrows, toast swipe, Collapsible height animation, the
 Timestamp hover card with copy buttons, emoji initials in Avatar, `changeAction` on form controls,
 function-valued `formatValue` (use the `Format` JSON options), the Slider touch controller, Selector
-`renderOption`/`renderValue`, MultiSelector option actions and `formatValue`. Typeahead, Tokenizer
-and the date and time inputs come next, then the remaining Astryx categories.
+`renderOption`/`renderValue`, MultiSelector option actions and `formatValue`, Typeahead/Tokenizer `renderItem`/`renderToken`,
+custom menus and token overflow. The date and time inputs come next, then the remaining Astryx
+categories.
 
 Selectors keep their value in a hidden element that `data-bind` goes on (`ValueAttrs`): an
 `<input type="hidden">` for `Selector` (a string signal) and a `<select multiple>` for
 `MultiSelector` (an array signal, in option order). `MultiSelector` with `HasCreate` adds the
 created value as a new option and fires a bubbling `astryx-create` event (`evt.detail.query`), so
 `data-on:astryx-create` can tell the server; a signal can only select values that are options.
+
+`Typeahead` and `Tokenizer` search a static `Items` list in the browser, or, with `IsRemote`, ask
+the server: after the debounce the control fires a bubbling `astryx-search` event
+(`evt.detail.query`), and the server answers by patching `TypeaheadResults` with the same ID and
+query (`data-on:astryx-search="@get('/search?id=city&q=' + encodeURIComponent(evt.detail.query))"`
+on `Attrs`). A Typeahead's value is the picked item's id in a hidden input (a string signal); a
+Tokenizer's values are the chosen ids in a hidden `<select multiple>` (an array signal, in the order
+they were added). Its `HasCreate` fires `astryx-create` like MultiSelector's.
 
 ## Develop
 

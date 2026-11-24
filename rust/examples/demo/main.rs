@@ -270,6 +270,29 @@ async fn demo_forms(
     }))
 }
 
+#[derive(Deserialize)]
+struct SearchQuery {
+    id: String,
+    #[serde(default)]
+    q: String,
+}
+
+/// Typeahead/Tokenizer remote search: answers with the results for the query (after a short
+/// delay, to show the loading state).
+async fn demo_search(
+    Query(q): Query<SearchQuery>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    Sse::new(stream::once(async move {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let results = canon_datastar::typeahead_results(&canon_datastar::TypeaheadResultsProps {
+            id: q.id,
+            items: forms::search_cities(&q.q),
+            query: q.q,
+        });
+        Ok(PatchElements::new(results.into_string()).write_as_axum_sse_event())
+    }))
+}
+
 /// ProgressBar over SSE: patches the bar as the "upload" advances; Datastar morphs it in place.
 async fn demo_progress() -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     Sse::new(stream::iter(0..=10).then(|i| async move {
@@ -363,6 +386,7 @@ async fn main() {
         .route("/content", get(content_index))
         .route("/forms", get(forms_index))
         .route("/demo/forms", post(demo_forms))
+        .route("/demo/search", get(demo_search))
         .route("/overlays", get(overlays_index))
         .route("/demo/progress", post(demo_progress))
         .route("/demo/save", post(save))

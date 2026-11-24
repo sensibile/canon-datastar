@@ -38,6 +38,7 @@ mod timestamp;
 mod toast;
 mod token;
 mod tooltip;
+mod typeahead;
 mod types;
 
 pub use avatar::{
@@ -92,6 +93,10 @@ pub use timestamp::{TimestampProps, TimestampTooltipEntry, timestamp};
 pub use toast::{ToastProps, ToastViewportProps, toast, toast_viewport};
 pub use token::{TokenProps, token};
 pub use tooltip::{InfoTipProps, TooltipProps, info_tip, tooltip};
+pub use typeahead::{
+    TokenizerProps, TypeaheadItem, TypeaheadProps, TypeaheadResultsProps, tokenizer, typeahead,
+    typeahead_results,
+};
 pub use types::FieldStatus;
 
 /// One HTML attribute, e.g. a Datastar binding `("data-bind:email".into(), "".into())`.

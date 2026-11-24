@@ -32,7 +32,7 @@ var priceGroup = canon.InputGroupProps{ID: "price", Label: "Price", Description:
 templ formsPage() {
 	<h1>Forms</h1>
 	<p class="demo-lead">Server-rendered controls bound to Datastar signals; static/canon.js adds counters, drafts, stepping, dragging and file checks.</p>
-	<div data-signals="{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', fruit: 'banana', region: '', fruits: ['apple', 'fig'], tags: [], agree: false}">
+	<div data-signals="{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', fruit: 'banana', region: '', fruits: ['apple', 'fig'], tags: [], person: 'ada', city: '', langs: ['go', 'rust'], cities: [], agree: false}">
 		@demoSection("TextArea") {
 			<div class="demo-grid">
 				@canon.TextArea(canon.TextAreaProps{ID: "bio", Label: "Bio", Value: "Writes Go and Rust.", MaxLength: 40,
@@ -133,6 +133,26 @@ templ formsPage() {
 				@canon.MultiSelector(canon.MultiSelectorProps{ID: "mlocked", Label: "Read only", Options: fruitOptions(), Value: []string{"fig"}, IsReadOnly: true})
 			</div>
 			<p class="demo-panel">fruits: <span data-text="JSON.stringify($fruits)"></span> · tags: <span data-text="JSON.stringify($tags)"></span> · <button type="button" data-on:click="$fruits = ['grape', 'banana']">Set fruits</button></p>
+		}
+		@demoSection("Typeahead and Tokenizer") {
+			<div class="demo-grid">
+				@canon.Typeahead(canon.TypeaheadProps{ID: "person", Label: "Person", Items: people(), Value: "ada",
+					HasEntriesOnFocus: true, Description: "Static list; matches keywords too (try “nasa”)",
+					ValueAttrs: []canon.Attr{canon.A("data-bind:person", "")}})
+				@canon.Typeahead(canon.TypeaheadProps{ID: "city", Label: "City", IsRemote: true, StartIcon: "search",
+					Description: "Searched on the server", Placeholder: "Search cities…",
+					Attrs: []canon.Attr{canon.A("data-on:astryx-search", searchExpr("city"))},
+					ValueAttrs: []canon.Attr{canon.A("data-bind:city", "")}})
+				@canon.Tokenizer(canon.TokenizerProps{ID: "langs", Label: "Languages", Items: languages(),
+					Value: []canon.TypeaheadItem{{ID: "go", Label: "Go"}, {ID: "rust", Label: "Rust"}}, HasCreate: true, HasClear: true,
+					MaxEntries: 4, HasEntriesOnFocus: true, Description: "Up to 4; type a new one to create it",
+					ValueAttrs: []canon.Attr{canon.A("data-bind:langs", "")}})
+				@canon.Tokenizer(canon.TokenizerProps{ID: "cities", Label: "Cities", IsRemote: true, Size: "sm",
+					Attrs: []canon.Attr{canon.A("data-on:astryx-search", searchExpr("cities"))},
+					ValueAttrs: []canon.Attr{canon.A("data-bind:cities", "")}})
+				@canon.Typeahead(canon.TypeaheadProps{ID: "tdisabled", Label: "Disabled", Items: people(), Value: "grace", IsDisabled: true})
+			</div>
+			<p class="demo-panel">person: <span data-text="$person"></span> · city: <span data-text="$city"></span> · langs: <span data-text="JSON.stringify($langs)"></span> · cities: <span data-text="JSON.stringify($cities)"></span> · <button type="button" data-on:click="$person = 'grace'">Set person</button></p>
 		}
 		@demoSection("Item") {
 			<div class="demo-grid">
