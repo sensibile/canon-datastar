@@ -3493,7 +3493,11 @@ doc.addEventListener('keydown', (e) => {
     case 'Home':
     case 'End':
       e.preventDefault();
-      if (nav.length) taHighlight(ctl, e.key === 'Home' ? nav[0] : nav.at(-1), true);
+      if (nav.length) {
+        const row = e.key === 'Home' ? nav[0] : nav.at(-1);
+        taHighlight(ctl, row, true);
+        row.scrollIntoView?.({ block: 'nearest' });
+      }
       return;
     case 'Enter':
       e.preventDefault();
@@ -3601,9 +3605,15 @@ function wireSearch(ctl) {
     const s = taState(ctl);
     const initial = hidden._canonDefault;
     if (initial !== '' && hidden.dataset.label && !s.labels.has(initial)) s.labels.set(initial, hidden.dataset.label);
+    // A value set from outside (data-bind) ends any search in progress.
     hookValue(hidden, () => {
+      const { input } = taParts(ctl);
+      const focused = input && doc.activeElement === input;
       taState(ctl).editing = false;
+      if (input) input.value = '';
+      taClose(ctl);
       renderTypeahead(ctl);
+      if (focused && hidden.value !== '') ctl.querySelector('.astryx-typeahead-token .astryx-token-inner')?.focus();
     });
   }
   if (popup && !popup._canonObserved) {
