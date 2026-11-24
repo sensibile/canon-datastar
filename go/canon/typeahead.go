@@ -106,8 +106,8 @@ type TypeaheadProps struct {
 	Name, Form string
 	// Class goes on the Field container, ControlClass on the bordered row.
 	Class, ControlClass string
-	// Attrs go on the Field container (put data-on:astryx-search here), InputAttrs on the search
-	// input, ValueAttrs on the hidden value input.
+	// Attrs go on the Field container, or on the control in a Group (put data-on:astryx-search
+	// here); InputAttrs on the search input, ValueAttrs on the hidden value input.
 	Attrs, InputAttrs, ValueAttrs []Attr
 	Group                         *InputGroupMember
 }
@@ -339,6 +339,10 @@ func searchShell(p searchProps, parts searchParts) templ.Component {
 		parts.extraCtl(ca)
 	}
 	ca.when(g != nil, "data-astryx-input-group-item", "")
+	// In a group there's no Field: Attrs (with the search handler) go on the control.
+	if g != nil {
+		ca.extra(p.Attrs)
+	}
 	control := el("div", ca, body...)
 	if g != nil {
 		return control

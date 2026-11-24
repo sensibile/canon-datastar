@@ -20,7 +20,8 @@ func TestTypeaheadFixtures(t *testing.T) {
 		{"remote", Typeahead(TypeaheadProps{ID: "r", Label: "Remote", IsRemote: true, DebounceMs: 300, Value: "x9",
 			ValueLabel: "Xavier", NoClear: true, StatusVariant: "detached", Status: &FieldStatus{Type: "warning", Message: "Slow"}})},
 		{"disabled", Typeahead(TypeaheadProps{ID: "d", Label: "Off", Items: items, Value: "ada", IsDisabled: true, Name: "off"})},
-		{"group", inputGroup(g, Typeahead(TypeaheadProps{ID: "gt", Label: "Who", Items: items, Group: g.Member()}))},
+		{"group", inputGroup(g, Typeahead(TypeaheadProps{ID: "gt", Label: "Who", Items: items, Group: g.Member(),
+			Attrs: []Attr{{"data-on:astryx-search", "@get('/s')"}}}))},
 		{"group-disabled", inputGroup(gd, Typeahead(TypeaheadProps{ID: "gtd", Label: "Who", Items: items, Name: "who",
 			Value: "ada", Group: gd.Member()}))},
 		{"results", TypeaheadResults(TypeaheadResultsProps{ID: "r", Query: "a\"b", Items: items})},
@@ -36,6 +37,7 @@ func TestTypeaheadFixtures(t *testing.T) {
 			Value: []TypeaheadItem{{ID: "one"}}})},
 		{"disabled", Tokenizer(TokenizerProps{ID: "d", Label: "Off", Items: items, IsDisabled: true, Name: "off",
 			Value: []TypeaheadItem{{ID: "ada", Label: "Ada Lovelace"}}, HasClear: true})},
-		{"group", inputGroup(g, Tokenizer(TokenizerProps{ID: "gk", Label: "Tags", Items: items, Group: g.Member()}))},
+		{"group", inputGroup(g, Tokenizer(TokenizerProps{ID: "gk", Label: "Tags", Items: items, Group: g.Member(),
+			Attrs: []Attr{{"data-x", "1"}}}))},
 	})
 }

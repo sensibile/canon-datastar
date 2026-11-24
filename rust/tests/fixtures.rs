@@ -2995,6 +2995,7 @@ fn typeahead_fixtures() {
                         label: s("Who"),
                         items: items.clone(),
                         group: g.member(),
+                        attrs: vec![(s("data-on:astryx-search"), s("@get('/s')"))],
                         ..Default::default()
                     }),
                 ),
@@ -3095,6 +3096,7 @@ fn typeahead_fixtures() {
                         label: s("Tags"),
                         items,
                         group: g.member(),
+                        attrs: vec![(s("data-x"), s("1"))],
                         ..Default::default()
                     }),
                 ),

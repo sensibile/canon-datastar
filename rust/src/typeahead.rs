@@ -96,7 +96,7 @@ pub struct TypeaheadProps {
     pub form: String,
     pub class: String,
     pub control_class: String,
-    /// On the Field container (put data-on:astryx-search here).
+    /// On the Field container, or on the control in a group (put data-on:astryx-search here).
     pub attrs: Vec<Attr>,
     /// On the search input.
     pub input_attrs: Vec<Attr>,
@@ -502,6 +502,8 @@ fn search_shell(p: &SearchProps, parts: SearchParts) -> Markup {
             or(p.empty_search_text, "No results found"),
         );
     let ca = (parts.extra_ctl)(ca).when(g.is_some(), "data-astryx-input-group-item", "");
+    // In a group there's no Field: attrs (with the search handler) go on the control.
+    let ca = if g.is_some() { ca.extra(p.attrs) } else { ca };
     let control = el("div", ca, body);
     if g.is_some() {
         return control;
