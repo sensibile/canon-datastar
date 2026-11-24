@@ -1,7 +1,7 @@
 // canon.js: client behaviour for canon-datastar components: overlays (Tooltip, InfoTip, Popover,
 // Dialog, DropdownMenu, TabList, Toast), content (Collapsible, Banner, Avatar, Token,
 // MetadataList, Thumbnail, Kbd, Timestamp) and forms (TextArea, Item, CheckboxList, RadioList,
-// NumberInput, Slider, FileInput). It imports ./number-parser.js, so serve both. Ports the interaction logic of Astryx (packages/core/src),
+// NumberInput, Slider, FileInput, Selector). It imports ./number-parser.js, so serve both. Ports the interaction logic of Astryx (packages/core/src),
 // MIT, Meta Platforms, Inc.
 //
 // Load it before Datastar so Datastar expressions can call window.canon:
@@ -1390,6 +1390,11 @@ function notify(h) {
 doc.addEventListener('reset', (e) => {
   const form = e.target;
   if (!(form instanceof HTMLFormElement)) return;
+  // A <select multiple> resets itself; remember the values to tell data-bind if they change.
+  const multiBefore = new Map();
+  for (const ctl of doc.querySelectorAll('.astryx-selector-control[data-multiple]')) {
+    if (selParts(ctl).hidden?.form === form) multiBefore.set(ctl, selValues(ctl).join('\u0000'));
+  }
   setTimeout(() => {
     if (e.defaultPrevented) return; // a listener cancelled the reset
     for (const el of form.elements) {
@@ -1406,6 +1411,18 @@ doc.addEventListener('reset', (e) => {
       endNumberDraft(ctl);
       restoreDefault(hidden);
       renderNumber(ctl);
+      notify(hidden);
+    }
+    for (const ctl of doc.querySelectorAll('.astryx-selector-control')) {
+      const { hidden } = selParts(ctl);
+      if (hidden?.form !== form) continue;
+      if (multiBefore.has(ctl)) {
+        if (multiBefore.get(ctl) !== selValues(ctl).join('\u0000')) selChanged(ctl);
+        else renderSelector(ctl);
+        continue;
+      }
+      restoreDefault(hidden);
+      renderSelector(ctl);
       notify(hidden);
     }
     for (const ctl of doc.querySelectorAll('.astryx-slider-control')) {
@@ -2318,6 +2335,676 @@ doc.addEventListener('drop', (e) => {
 });
 
 // ---------------------------------------------------------------------------------------------
+// Selector: a combobox button over a popover listbox. The value lives in the hidden
+// .astryx-selector-value input (where data-bind goes); rows carry data-value. Rows are
+// reached with aria-activedescendant, so focus stays on the trigger (or the search field).
+// MultiSelector shares the control ([data-multiple]): its values are the selected options of a
+// hidden <select multiple>, rows toggle without closing the list, and lead rows ([data-create],
+// [data-select-all]) sit above the options.
+
+const selCtl = (t) => (t instanceof Element ? t.closest('.astryx-selector-control') : null);
+function selParts(ctl) {
+  const trigger = ctl.querySelector(':scope > .astryx-selector-trigger');
+  const id = trigger?.id ?? '';
+  const popup = id ? doc.getElementById(`${id}-popup`) : null;
+  return {
+    trigger,
+    hidden: ctl.querySelector(':scope > :is(.astryx-selector-value, .astryx-multi-selector-value)'),
+    popup,
+    listbox: popup?.querySelector('[role="listbox"]') ?? null,
+    search: popup?.querySelector('.astryx-selector-search') ?? null,
+    live: id ? doc.getElementById(`${id}-live`) : null,
+  };
+}
+function selState(ctl) {
+  ctl._canonSel ??= { active: null, keyboard: false, buffer: '', timer: 0 };
+  return ctl._canonSel;
+}
+const selInactive = (ctl) => ctl.hasAttribute('data-disabled') || ctl.hasAttribute('data-readonly');
+const selRows = (ctl) => [...(selParts(ctl).listbox?.querySelectorAll('[role="option"]') ?? [])];
+const selMulti = (ctl) => ctl.hasAttribute('data-multiple');
+const isLeadRow = (r) => r.hasAttribute('data-select-all') || r.hasAttribute('data-create');
+const selOptionRows = (ctl) => selRows(ctl).filter((r) => !isLeadRow(r));
+/** The MultiSelector's selected values, in option order. */
+const selValues = (ctl) => [...(selParts(ctl).hidden?.options ?? [])].filter((o) => o.selected).map((o) => o.value);
+/** Set or remove an attribute, touching the DOM only on change (scan() re-renders on mutations). */
+function attrTo(el, name, value) {
+  if (value == null) {
+    if (el.hasAttribute(name)) el.removeAttribute(name);
+  } else if (el.getAttribute(name) !== value) el.setAttribute(name, value);
+}
+const selVisible = (ctl) => selRows(ctl).filter((r) => !r.hidden);
+const rowDisabled = (r) => r.getAttribute('aria-disabled') === 'true';
+const rowLabel = (r) => r.querySelector('.astryx-selector-option-label')?.textContent ?? r.dataset.value ?? '';
+const selValue = (ctl) => {
+  const { hidden } = selParts(ctl);
+  return hidden ? nativeValue.get.call(hidden) : '';
+};
+const selIsOpen = (ctl) => selParts(ctl).popup?.matches(':popover-open') ?? false;
+
+/** Bring the trigger text, the selected row and the clear button up to date with the value. */
+function renderSelector(ctl) {
+  if (selMulti(ctl)) return renderMultiSelector(ctl);
+  const { trigger } = selParts(ctl);
+  if (!trigger) return;
+  const value = selValue(ctl);
+  let picked = null;
+  for (const r of selRows(ctl)) {
+    const on = value !== '' && r.dataset.value === value;
+    if (on && !picked) picked = r;
+    const next = String(on);
+    if (r.getAttribute('aria-selected') !== next) r.setAttribute('aria-selected', next);
+  }
+  const text = trigger.querySelector('.astryx-selector-value-text');
+  if (text) {
+    const label = picked ? rowLabel(picked) : (text.dataset.placeholderText ?? '');
+    if (text.textContent !== label) text.textContent = label;
+  }
+  const iconSlot = trigger.querySelector('.astryx-selector-value-icon');
+  if (iconSlot) {
+    // Only touch the DOM on change: scan() runs on mutations and calls this.
+    const icon = picked?.dataset.icon ?? '';
+    if ((iconSlot.dataset.icon ?? '') !== icon) {
+      const source = picked?.querySelector(':scope > .astryx-selector-option-content > .astryx-icon');
+      iconSlot.replaceChildren(...(source ? [source.cloneNode(true)] : []));
+      iconSlot.dataset.icon = icon;
+    }
+    if (iconSlot.hidden !== (icon === '')) iconSlot.hidden = icon === '';
+  }
+  if (ctl.hasAttribute('data-placeholder') === !!picked) ctl.toggleAttribute('data-placeholder', !picked);
+  const clear = ctl.querySelector(':scope > [data-selector-clear]');
+  if (clear && clear.hidden !== (value === '')) clear.hidden = value === '';
+}
+
+/** The trigger text (or badges), the checked rows, "Select all" and the clear button. */
+function renderMultiSelector(ctl) {
+  const { trigger, hidden } = selParts(ctl);
+  if (!trigger || !hidden) return;
+  const picked = [...hidden.options].filter((o) => o.selected);
+  const on = new Set(picked.map((o) => o.value));
+  const rows = selOptionRows(ctl);
+  for (const r of rows) attrTo(r, 'aria-selected', String(on.has(r.dataset.value ?? '')));
+  const all = selParts(ctl).listbox?.querySelector('[data-select-all]');
+  if (all) {
+    // Over the enabled options the search leaves shown.
+    const enabled = rows.filter((r) => !r.hidden && !rowDisabled(r));
+    const count = enabled.filter((r) => on.has(r.dataset.value ?? '')).length;
+    const state = enabled.length > 0 && count === enabled.length ? 'checked' : count > 0 ? 'indeterminate' : 'unchecked';
+    attrTo(all, 'data-state', state);
+    attrTo(all, 'aria-selected', String(state === 'checked'));
+    attrTo(all, 'aria-label', state === 'indeterminate' ? `${rowLabel(all)}, partially selected` : null);
+  }
+  const text = trigger.querySelector('.astryx-selector-value-text');
+  if (text) {
+    const labels = picked.map((o) => o.textContent || o.value);
+    const display = text.dataset.display ?? 'count';
+    const badges = display === 'badges' && labels.length > 0;
+    let label = text.dataset.placeholderText ?? '';
+    if (labels.length && display === 'labels') {
+      const rest = labels.length - 3;
+      label = labels.slice(0, 3).join(', ') + (rest > 0 ? `, +${rest}` : '');
+    } else if (labels.length && !badges) label = `${labels.length} selected`;
+    const key = badges ? `\u0000${labels.join('\u0000')}` : label;
+    if ((text._canonKey ?? (text.hasAttribute('data-badges') ? null : text.textContent)) !== key) {
+      text._canonKey = key;
+      text.toggleAttribute('data-badges', badges);
+      if (!badges) text.textContent = label;
+      else {
+        const max = Number(text.dataset.maxBadges) || 3;
+        const nodes = labels.slice(0, max).map((l) => {
+          const b = doc.createElement('span');
+          b.className = 'astryx-badge';
+          b.dataset.variant = 'neutral';
+          b.setAttribute('data-has-label', '');
+          b.title = l;
+          const inner = doc.createElement('span');
+          inner.className = 'astryx-badge-label';
+          inner.dir = 'auto';
+          inner.textContent = l;
+          b.append(inner);
+          return b;
+        });
+        if (labels.length > max) {
+          const more = doc.createElement('span');
+          more.className = 'astryx-multi-selector-overflow';
+          more.textContent = `+${labels.length - max}`;
+          nodes.push(more);
+        }
+        text.replaceChildren(...nodes);
+      }
+    }
+  }
+  if (ctl.hasAttribute('data-placeholder') !== (picked.length === 0)) ctl.toggleAttribute('data-placeholder', picked.length === 0);
+  const clear = ctl.querySelector(':scope > [data-selector-clear]');
+  if (clear && clear.hidden !== (picked.length === 0)) clear.hidden = picked.length === 0;
+}
+
+function selHighlight(ctl, row, keyboard) {
+  const s = selState(ctl);
+  const { trigger, search } = selParts(ctl);
+  if (s.active && s.active !== row) {
+    s.active.removeAttribute('data-highlighted');
+    s.active.removeAttribute('data-keyboard');
+  }
+  s.active = row;
+  if (keyboard !== undefined) s.keyboard = keyboard;
+  if (row) {
+    row.setAttribute('data-highlighted', '');
+    row.toggleAttribute('data-keyboard', s.keyboard);
+    row.scrollIntoView?.({ block: 'nearest' });
+  }
+  const owner = search ?? trigger;
+  if (!owner || owner.getAttribute('role') !== 'combobox') return;
+  if (row) owner.setAttribute('aria-activedescendant', row.id);
+  else owner.removeAttribute('aria-activedescendant');
+}
+
+/** The row to highlight when the list opens: the selected one, else the first (or last) enabled. */
+function selOpeningRow(ctl, fromEnd) {
+  const visible = selVisible(ctl).filter((r) => !rowDisabled(r));
+  if (selMulti(ctl)) return (fromEnd ? visible.at(-1) : visible[0]) ?? null;
+  const value = selValue(ctl);
+  const picked = value === '' ? null : visible.find((r) => r.dataset.value === value);
+  return picked ?? (fromEnd ? visible.at(-1) : visible[0]) ?? null;
+}
+
+function openSelector(ctl, highlight = 'start') {
+  if (selInactive(ctl)) return false;
+  const { popup, search } = selParts(ctl);
+  if (!popup) return false;
+  popup._canonAnchor = ctl;
+  if (selMulti(ctl) && !popup.matches(':popover-open')) selReorder(ctl);
+  safeShow(popup);
+  if (!popup.matches(':popover-open')) return false;
+  if (search) {
+    requestAnimationFrame(() => {
+      search.focus({ preventScroll: true });
+      search.setSelectionRange(search.value.length, search.value.length);
+    });
+  } else if (highlight !== 'none') {
+    selHighlight(ctl, selOpeningRow(ctl, highlight === 'end'));
+  }
+  return true;
+}
+
+function closeSelector(ctl, restoreFocus = false) {
+  const { popup, trigger } = selParts(ctl);
+  if (!popup) return;
+  if (popup.matches(':popover-open')) {
+    if (popup.contains(doc.activeElement)) restoreFocus = true;
+    // Cleared now, not in the (later) toggle event, so a message sent right after closing stays.
+    const { live } = selParts(ctl);
+    if (live) live.textContent = '';
+    safeHide(popup);
+  }
+  if (restoreFocus) trigger?.focus({ preventScroll: true });
+}
+
+/** Reset the list state after the popup closes, however it closed. */
+function selClosed(ctl) {
+  const s = selState(ctl);
+  const { search } = selParts(ctl);
+  selHighlight(ctl, null);
+  s.buffer = '';
+  if (search && search.value !== '') {
+    search.value = '';
+    selFilter(ctl, '');
+  }
+}
+
+function selCommit(ctl, value) {
+  const { hidden } = selParts(ctl);
+  if (!hidden || selInactive(ctl)) return;
+  if (nativeValue.get.call(hidden) === value) return;
+  nativeValue.set.call(hidden, value);
+  renderSelector(ctl);
+  hidden.dispatchEvent(new Event('input', { bubbles: true }));
+  hidden.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function selPick(ctl, row) {
+  if (!row || rowDisabled(row)) return;
+  if (selMulti(ctl)) return selToggle(ctl, row);
+  selCommit(ctl, row.dataset.value ?? '');
+  closeSelector(ctl, true);
+}
+
+/** Move the selected options to the top of each run of rows (and each section), keeping the
+ * rest in option order. Runs only as the list opens, so rows don't jump while toggling. */
+function selReorder(ctl) {
+  const { listbox, hidden } = selParts(ctl);
+  if (!listbox || !hidden) return;
+  const on = new Set(selValues(ctl));
+  const index = (r) => Number(r.id.match(/-option-(\d+)$/)?.[1] ?? 0);
+  const sortRun = (parent, run) => {
+    if (run.length < 2) return;
+    const sorted = [...run].sort((a, b) => on.has(b.dataset.value) - on.has(a.dataset.value) || index(a) - index(b));
+    if (sorted.every((r, i) => r === run[i])) return;
+    const after = run.at(-1).nextSibling;
+    for (const r of sorted) parent.insertBefore(r, after);
+  };
+  const runs = (parent) => {
+    let run = [];
+    for (const child of [...parent.children]) {
+      if (child.getAttribute('role') === 'option' && !isLeadRow(child)) run.push(child);
+      else {
+        sortRun(parent, run);
+        run = [];
+        if (child.classList.contains('astryx-selector-section')) runs(child);
+      }
+    }
+    sortRun(parent, run);
+  };
+  runs(listbox);
+}
+
+/** Tell data-bind (and listeners) that the MultiSelector's select changed. */
+function selChanged(ctl) {
+  const { hidden } = selParts(ctl);
+  renderMultiSelector(ctl);
+  hidden?.dispatchEvent(new Event('input', { bubbles: true }));
+  hidden?.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function selAnnounce(ctl, message) {
+  const { live } = selParts(ctl);
+  if (live) live.textContent = message;
+}
+
+function selAnnounceCount(ctl) {
+  const rows = selOptionRows(ctl);
+  const on = new Set(selValues(ctl));
+  const count = rows.filter((r) => on.has(r.dataset.value ?? '')).length;
+  const total = rows.length;
+  selAnnounce(ctl, count === 0 ? 'Selection cleared' : total > 0 && count === total ? 'All selected' : `${count} of ${total} selected`);
+}
+
+/** Set the MultiSelector's selection (an array of values) and notify. */
+function selSetValues(ctl, values) {
+  const { hidden } = selParts(ctl);
+  if (!hidden || selInactive(ctl)) return;
+  const want = new Set(values);
+  let changed = false;
+  for (const o of hidden.options) {
+    if (o.selected !== want.has(o.value)) {
+      o.selected = want.has(o.value);
+      changed = true;
+    }
+  }
+  if (changed) selChanged(ctl);
+}
+
+/** Give a created value its own checkbox row (built from the create row) at the end of the list,
+ * so it can be unselected and isn't offered for creation again. */
+function selAddRow(ctl, createRow, value) {
+  const { listbox } = selParts(ctl);
+  if (!listbox || selOptionRows(ctl).some((r) => r.dataset.value === value)) return;
+  const row = createRow.cloneNode(true);
+  row.id = `${listbox.id}-option-${selOptionRows(ctl).length}`;
+  for (const a of ['data-create', 'data-query', 'hidden', 'data-highlighted', 'data-keyboard']) row.removeAttribute(a);
+  row.dataset.value = value;
+  row.dataset.mark = 'checkbox';
+  row.setAttribute('aria-selected', 'false');
+  const label = row.querySelector('.astryx-selector-option-label');
+  if (label) label.textContent = value;
+  const mark = doc.createElement('span');
+  mark.className = 'astryx-selector-option-mark';
+  mark.innerHTML =
+    '<span class="astryx-checkbox-indicator" data-size="sm" aria-hidden="true"><svg viewBox="0 0 10 10" class="astryx-checkbox-indicator-check"><path d="M8.5 2.5L4 7.5L1.5 5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="astryx-checkbox-indicator-dash"></span></span>';
+  // The checkbox goes on the same side as on the other rows.
+  const sample = listbox.querySelector('[data-mark="checkbox"]');
+  if (sample && sample.lastElementChild?.classList.contains('astryx-selector-option-mark')) row.append(mark);
+  else row.prepend(mark);
+  listbox.append(row);
+}
+
+/** Toggle a row of a MultiSelector: an option, "Select all" or "Create". The list stays open. */
+function selToggle(ctl, row) {
+  const { hidden, search } = selParts(ctl);
+  if (!hidden || selInactive(ctl)) return;
+  const values = selValues(ctl);
+  if (row.hasAttribute('data-create')) {
+    const query = row.dataset.query ?? '';
+    if (!query) return;
+    let opt = [...hidden.options].find((o) => o.value === query);
+    if (!opt) {
+      opt = new Option(query, query);
+      hidden.append(opt);
+      hookProperty(opt, 'selected', () => renderMultiSelector(ctl));
+    }
+    selAddRow(ctl, row, query);
+    if (!opt.selected) {
+      opt.selected = true;
+      selChanged(ctl);
+    }
+    ctl.dispatchEvent(new CustomEvent('astryx-create', { bubbles: true, detail: { query } }));
+    if (search) {
+      search.value = '';
+      selSyncSearchClear(search);
+      selFilter(ctl, '');
+    }
+    selAnnounce(ctl, `${query} created`);
+    return;
+  }
+  if (row.hasAttribute('data-select-all')) {
+    const shown = selOptionRows(ctl).filter((r) => !r.hidden && !rowDisabled(r)).map((r) => r.dataset.value ?? '');
+    const allOn = row.dataset.state === 'checked';
+    const next = allOn ? values.filter((v) => !shown.includes(v)) : [...values, ...shown.filter((v) => !values.includes(v))];
+    selSetValues(ctl, next);
+  } else {
+    const v = row.dataset.value ?? '';
+    selSetValues(ctl, values.includes(v) ? values.filter((x) => x !== v) : [...values, v]);
+  }
+  selAnnounceCount(ctl);
+}
+
+/** Show the rows whose label contains the query; dividers hide while searching. */
+function selFilter(ctl, query) {
+  const { listbox, live } = selParts(ctl);
+  if (!listbox) return;
+  const q = query.toLowerCase();
+  let shown = 0;
+  for (const r of listbox.querySelectorAll('[role="option"]')) {
+    if (isLeadRow(r)) continue;
+    const match = !q || rowLabel(r).toLowerCase().includes(q);
+    r.hidden = !match;
+    if (match) shown++;
+  }
+  // MultiSelector: offer the query as a new value when no option has that label.
+  const create = listbox.querySelector(':scope > [data-create]');
+  let creating = false;
+  if (create) {
+    const wanted = query.trim();
+    creating = wanted !== '' && !ctl.querySelector('[aria-busy="true"]') &&
+      !selOptionRows(ctl).some((r) => rowLabel(r).toLowerCase() === wanted.toLowerCase());
+    create.hidden = !creating;
+    create.dataset.query = creating ? wanted : '';
+    const label = create.querySelector('.astryx-selector-option-label');
+    if (label) label.textContent = creating ? `Create "${wanted}"` : '';
+  }
+  const all = listbox.querySelector(':scope > [data-select-all]');
+  if (all) all.hidden = shown === 0;
+  for (const d of listbox.querySelectorAll(':scope > .astryx-selector-divider')) d.hidden = q !== '';
+  for (const sec of listbox.querySelectorAll(':scope > .astryx-selector-section')) {
+    sec.hidden = !sec.querySelector('[role="option"]:not([hidden])');
+  }
+  const empty = listbox.querySelector(':scope > .astryx-selector-empty-state');
+  if (empty) {
+    empty.hidden = shown > 0 || creating;
+    const text = q ? listbox.dataset.emptySearchText : listbox.dataset.emptyText;
+    if (text != null && empty.textContent !== text) empty.textContent = text;
+  }
+  if (selMulti(ctl)) renderMultiSelector(ctl);
+  selHighlight(ctl, null);
+  if (live) live.textContent = q && shown > 0 && !ctl.querySelector('[aria-busy="true"]') ? `${shown} ${shown === 1 ? 'result' : 'results'}` : '';
+}
+
+/** Label-prefix typeahead: repeating one character cycles through the labels starting with it. */
+function selTypeahead(ctl, key, from) {
+  const s = selState(ctl);
+  clearTimeout(s.timer);
+  s.timer = setTimeout(() => (s.buffer = ''), 500);
+  const lower = key.toLowerCase();
+  const cycling = s.buffer.length > 0 && [...s.buffer].every((c) => c === lower);
+  s.buffer += lower;
+  const needle = cycling ? lower : s.buffer;
+  const rows = selRows(ctl);
+  const current = from ? rows.indexOf(from) : -1;
+  const start = cycling || s.buffer.length === 1 ? current + 1 : Math.max(current, 0);
+  for (let k = 0; k < rows.length; k++) {
+    const r = rows[(((start + k) % rows.length) + rows.length) % rows.length];
+    if (!rowDisabled(r) && rowLabel(r).toLowerCase().startsWith(needle)) return r;
+  }
+  return null;
+}
+
+/** Listbox keys shared by the trigger and the search field; true when handled. */
+function selNavigate(ctl, e) {
+  const open = selIsOpen(ctl);
+  const s = selState(ctl);
+  const enabled = selVisible(ctl).filter((r) => !rowDisabled(r));
+  const hasSearch = selParts(ctl).search != null;
+  switch (e.key) {
+    case 'ArrowDown':
+    case 'ArrowUp': {
+      e.preventDefault();
+      const down = e.key === 'ArrowDown';
+      if (!open) {
+        openSelector(ctl, down ? 'start' : 'end');
+        return true;
+      }
+      const i = s.active ? enabled.indexOf(s.active) : -1;
+      const next = i < 0 ? (down ? enabled[0] : enabled.at(-1)) : enabled[Math.min(Math.max(i + (down ? 1 : -1), 0), enabled.length - 1)];
+      if (next) selHighlight(ctl, next, true);
+      return true;
+    }
+    case 'Home':
+    case 'PageUp':
+    case 'End':
+    case 'PageDown': {
+      if (!open) return false;
+      e.preventDefault();
+      const next = e.key === 'Home' || e.key === 'PageUp' ? enabled[0] : enabled.at(-1);
+      if (next) selHighlight(ctl, next, true);
+      return true;
+    }
+    case ' ':
+      if (hasSearch) return false;
+    // falls through
+    case 'Enter':
+      e.preventDefault();
+      if (open && s.active) selPick(ctl, s.active);
+      else if (!open) openSelector(ctl);
+      return true;
+    case 'Escape':
+      if (!open) return false;
+      e.preventDefault();
+      e.stopPropagation();
+      closeSelector(ctl, true);
+      return true;
+    case 'Tab':
+      if (open) closeSelector(ctl);
+      return false;
+  }
+  return false;
+}
+
+const printableKey = (e) => e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+
+doc.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  if (t.matches('.astryx-selector-trigger')) {
+    const ctl = selCtl(t);
+    if (!ctl || e.defaultPrevented || selInactive(ctl) || e.isComposing) return;
+    const s = selState(ctl);
+    s.keyboard = true;
+    const open = selIsOpen(ctl);
+    const hasSearch = selParts(ctl).search != null;
+    if (!hasSearch && printableKey(e) && (e.key !== ' ' || s.buffer !== '')) {
+      e.preventDefault();
+      const multi = selMulti(ctl);
+      const value = multi ? '' : selValue(ctl);
+      const from = open ? s.active : selRows(ctl).find((r) => value !== '' && r.dataset.value === value);
+      const match = selTypeahead(ctl, e.key, from);
+      if (!match) return;
+      // A MultiSelector's typeahead only moves the highlight; it never toggles.
+      if (multi && !open) {
+        if (openSelector(ctl, 'none')) selHighlight(ctl, match, true);
+      } else if (open) selHighlight(ctl, match, true);
+      else if (match.dataset.value !== value) {
+        selCommit(ctl, match.dataset.value ?? '');
+        const { live } = selParts(ctl);
+        if (live) live.textContent = rowLabel(match);
+      }
+      return;
+    }
+    if (selNavigate(ctl, e)) return;
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !hasSearch && !open && ctl.querySelector(':scope > [data-selector-clear]')) {
+      s.buffer = '';
+      if (selMulti(ctl)) {
+        if (selValues(ctl).length === 0) return;
+        e.preventDefault();
+        selSetValues(ctl, []);
+        selAnnounce(ctl, 'Selection cleared');
+      } else if (selValue(ctl) !== '') {
+        e.preventDefault();
+        selCommit(ctl, '');
+      }
+      return;
+    }
+    if (hasSearch && printableKey(e)) {
+      // Typing on the trigger opens the list and seeds the search with that character.
+      e.preventDefault();
+      const { search } = selParts(ctl);
+      if (open || openSelector(ctl, 'none')) {
+        search.value += e.key;
+        selFilter(ctl, search.value);
+        selSyncSearchClear(search);
+      }
+    }
+  } else if (t.matches('.astryx-selector-search')) {
+    const ctl = selFromPopup(t);
+    if (!ctl || e.isComposing) return;
+    const s = selState(ctl);
+    s.keyboard = true;
+    const create = selParts(ctl).listbox?.querySelector(':scope > [data-create]:not([hidden])');
+    if (e.key === 'Enter' && !s.active && create) {
+      // Enter with nothing highlighted creates the typed value.
+      e.preventDefault();
+      selToggle(ctl, create);
+      return;
+    }
+    if (['ArrowDown', 'ArrowUp', 'PageUp', 'PageDown', 'Enter', 'Escape'].includes(e.key)) selNavigate(ctl, e);
+    else if (e.key === 'Tab' && (e.shiftKey || t.value === '')) closeSelector(ctl, e.shiftKey);
+  } else if (t.matches('.astryx-selector-search-clear')) {
+    const ctl = selFromPopup(t);
+    if (!ctl) return;
+    if (e.key === 'Escape' || (e.key === 'Tab' && !e.shiftKey)) {
+      if (e.key === 'Escape') e.preventDefault();
+      closeSelector(ctl, e.key === 'Escape');
+    }
+  }
+});
+
+/** The control a popup (or something inside it) belongs to. */
+function selFromPopup(t) {
+  const popup = t.closest('.astryx-selector-popup');
+  const trigger = popup && doc.getElementById(popup.id.replace(/-popup$/, ''));
+  return trigger ? selCtl(trigger) : null;
+}
+
+doc.addEventListener('input', (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLInputElement) || !t.matches('.astryx-selector-search')) return;
+  const ctl = selFromPopup(t);
+  if (!ctl) return;
+  selFilter(ctl, t.value);
+  selSyncSearchClear(t);
+});
+
+/** Show the search field's clear button while it holds text. */
+function selSyncSearchClear(search) {
+  const clear = search.parentElement?.querySelector('.astryx-selector-search-clear');
+  if (clear && clear.hidden !== (search.value === '')) clear.hidden = search.value === '';
+}
+
+// A press on a row, the clear button or the search clear must not move focus off the combobox.
+doc.addEventListener('mousedown', (e) => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  if (t.closest('.astryx-selector-listbox, .astryx-selector-control > [data-selector-clear]')) e.preventDefault();
+});
+
+doc.addEventListener('click', (e) => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  const row = t.closest('.astryx-selector-listbox [role="option"]');
+  if (row) {
+    const ctl = selFromPopup(row);
+    if (ctl) selPick(ctl, row);
+    return;
+  }
+  const searchClear = t.closest('.astryx-selector-search-clear');
+  if (searchClear) {
+    const ctl = selFromPopup(searchClear);
+    const { search } = ctl ? selParts(ctl) : {};
+    if (!search) return;
+    search.value = '';
+    searchClear.hidden = true;
+    selFilter(ctl, '');
+    search.focus();
+    return;
+  }
+  // The popup sits inside the control, but presses in it are not presses on the control.
+  if (t.closest('.astryx-selector-popup')) return;
+  const ctl = selCtl(t);
+  if (!ctl) return;
+  const { trigger, popup } = selParts(ctl);
+  if (t.closest('[data-selector-clear]')) {
+    selState(ctl).buffer = '';
+    if (selMulti(ctl)) {
+      selSetValues(ctl, []);
+      selAnnounce(ctl, 'Selection cleared');
+    } else selCommit(ctl, '');
+    trigger?.focus({ preventScroll: e.detail !== 0 });
+    return;
+  }
+  if (selInactive(ctl) || !popup) return;
+  selState(ctl).keyboard = e.detail === 0;
+  // The press that light-dismissed the list must not reopen it.
+  if (selIsOpen(ctl)) closeSelector(ctl);
+  else if (performance.now() - (popup._canonClosedAt ?? 0) > 300) openSelector(ctl);
+  trigger?.focus({ preventScroll: true });
+});
+
+doc.addEventListener('mousemove', (e) => {
+  const row = e.target instanceof Element ? e.target.closest('.astryx-selector-listbox [role="option"]') : null;
+  if (!row || rowDisabled(row)) return;
+  const ctl = selFromPopup(row);
+  if (ctl && selState(ctl).active !== row) selHighlight(ctl, row, false);
+  else if (ctl && selState(ctl).keyboard) selHighlight(ctl, row, false);
+});
+
+doc.addEventListener(
+  'toggle',
+  (e) => {
+    const popup = e.target;
+    if (!(popup instanceof HTMLElement) || !popup.classList.contains('astryx-selector-popup')) return;
+    const ctl = selFromPopup(popup);
+    if (!ctl) return;
+    const open = e.newState === 'open';
+    ctl.toggleAttribute('data-open', open);
+    ctl.querySelector(':scope > .astryx-selector-indicator-icon')?.setAttribute('data-state', open ? 'expanded' : 'collapsed');
+    const { trigger, search } = selParts(ctl);
+    trigger?.setAttribute('aria-expanded', String(open));
+    if (open) return;
+    selClosed(ctl);
+    // Escape or a light dismiss with focus inside the list sends focus back to the trigger.
+    if (doc.activeElement === doc.body || doc.activeElement === search) trigger?.focus({ preventScroll: true });
+  },
+  true,
+);
+
+/** Wire a Selector once: a hidden value Datastar (or a script) can set, and isDefaultOpen. */
+function wireSelector(ctl) {
+  const { hidden } = selParts(ctl);
+  if (!hidden) return;
+  if (hidden instanceof HTMLSelectElement) {
+    // data-bind on a <select multiple> writes each option's .selected.
+    for (const o of hidden.options) hookProperty(o, 'selected', () => renderMultiSelector(ctl));
+  } else {
+    hidden._canonDefault ??= nativeValue.get.call(hidden);
+    hookValue(hidden, () => renderSelector(ctl));
+  }
+  renderSelector(ctl);
+  if (ctl.hasAttribute('data-default-open') && !ctl._canonDefaultOpened) {
+    ctl._canonDefaultOpened = true;
+    requestAnimationFrame(() => openSelector(ctl));
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Wiring markup as it appears (initial page and Datastar patches).
 
 function popoverTrigger(anchor) {
@@ -2372,6 +3059,7 @@ function scan() {
     for (const b of g.querySelectorAll('input[type="checkbox"]')) hookProperty(b, 'checked', () => syncRequired(g));
     syncRequired(g);
   }
+  for (const c of doc.querySelectorAll('.astryx-selector-control')) wireSelector(c);
   for (const n of doc.querySelectorAll('.astryx-number-input')) wireNumber(n);
   for (const s of doc.querySelectorAll('.astryx-slider-control')) wireSlider(s);
   for (const f of doc.querySelectorAll('.astryx-file-input')) renderFiles(f);

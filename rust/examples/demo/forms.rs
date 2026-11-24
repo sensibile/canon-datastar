@@ -185,6 +185,92 @@ fn file_inputs() -> Markup {
     }
 }
 
+fn opt(value: &str, label: &str) -> SelectorOption {
+    SelectorOption::new(value, label)
+}
+
+fn fruit_options() -> Vec<SelectorOption> {
+    vec![
+        SelectorOption {
+            description: s("Crisp and sweet"),
+            ..opt("apple", "Apple")
+        },
+        opt("banana", "Banana"),
+        SelectorOption {
+            icon: s("success"),
+            ..opt("cherry", "Cherry")
+        },
+        SelectorOption {
+            is_disabled: true,
+            ..opt("durian", "Durian")
+        },
+        opt("elderberry", "Elderberry"),
+        opt("fig", "Fig"),
+        opt("grape", "Grape"),
+    ]
+}
+
+fn region_options() -> Vec<SelectorOption> {
+    vec![
+        selector_section(
+            "Americas",
+            vec![
+                opt("us-east", "US East"),
+                opt("us-west", "US West"),
+                opt("sa", "São Paulo"),
+            ],
+        ),
+        selector_divider(),
+        selector_section(
+            "Asia Pacific",
+            vec![
+                opt("seoul", "Seoul"),
+                opt("tokyo", "Tokyo"),
+                opt("sydney", "Sydney"),
+            ],
+        ),
+        selector_divider(),
+        opt("global", "Global"),
+    ]
+}
+
+fn selectors() -> Markup {
+    html! {
+        div.demo-grid {
+            (selector(&SelectorProps { id: s("fruit"), label: s("Fruit"), options: fruit_options(), value: s("banana"), has_clear: true,
+                description: s("Type a letter to jump"), value_attrs: bind("fruit"), ..Default::default() }))
+            (selector(&SelectorProps { id: s("region"), label: s("Region"), options: region_options(), has_search: true,
+                placeholder: s("Pick a region"), start_icon: s("search"), value_attrs: bind("region"), ..Default::default() }))
+            (selector(&SelectorProps { id: s("sort"), label: s("Sort"), options: fruit_options(), variant: s("secondary"), size: s("sm"),
+                indicator_position: s("start"), status: Some(FieldStatus::new("warning", "Detached for this variant")), ..Default::default() }))
+            (selector(&SelectorProps { id: s("locked"), label: s("Read only"), options: fruit_options(), value: s("fig"), is_read_only: true,
+                ..Default::default() }))
+            (selector(&SelectorProps { id: s("off"), label: s("Disabled"), options: fruit_options(), is_disabled: true,
+                status: Some(FieldStatus::new("error", "Pick a fruit")), ..Default::default() }))
+        }
+        p.demo-panel { "fruit: " span data-text="$fruit" {} " · region: " span data-text="$region" {} " · " button type="button" data-on:click="$fruit = 'grape'" { "Set fruit to grape" } }
+    }
+}
+
+fn multi_selectors() -> Markup {
+    let vals = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+    html! {
+        div.demo-grid {
+            (multi_selector(&MultiSelectorProps { id: s("fruits"), label: s("Fruits"), options: fruit_options(), value: vals(&["apple", "fig"]),
+                has_clear: true, has_select_all: true, trigger_display: s("labels"), description: s("The list stays open while you toggle"),
+                value_attrs: bind("fruits"), ..Default::default() }))
+            (multi_selector(&MultiSelectorProps { id: s("tags"), label: s("Regions"), options: region_options(), has_search: true,
+                has_create: true, has_select_all: true, trigger_display: s("badges"), max_badges: 2, placeholder: s("Any region"),
+                value_attrs: bind("tags"), ..Default::default() }))
+            (multi_selector(&MultiSelectorProps { id: s("count"), label: s("Count"), options: fruit_options(), value: vals(&["banana", "cherry"]),
+                variant: s("secondary"), size: s("sm"), indicator_position: s("end"), ..Default::default() }))
+            (multi_selector(&MultiSelectorProps { id: s("mlocked"), label: s("Read only"), options: fruit_options(), value: vals(&["fig"]),
+                is_read_only: true, ..Default::default() }))
+        }
+        p.demo-panel { "fruits: " span data-text="JSON.stringify($fruits)" {} " · tags: " span data-text="JSON.stringify($tags)" {} " · " button type="button" data-on:click="$fruits = ['grape', 'banana']" { "Set fruits" } }
+    }
+}
+
 fn items() -> Markup {
     let qty = || Some(vec![attr("data-on:click", "$qty++")]);
     html! {
@@ -203,13 +289,15 @@ pub(crate) fn page() -> Markup {
     html! {
         h1 { "Forms" }
         p.demo-lead { "Server-rendered controls bound to Datastar signals; static/canon.js adds counters, drafts, stepping, dragging and file checks." }
-        div data-signals="{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', agree: false}" {
+        div data-signals="{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', fruit: 'banana', region: '', fruits: ['apple', 'fig'], tags: [], agree: false}" {
             (section("TextArea", text_areas()))
             (section("NumberInput", number_inputs()))
             (section("InputGroup", input_groups()))
             (section("CheckboxList and RadioList", choice_lists()))
             (section("Slider", sliders()))
             (section("FileInput", file_inputs()))
+            (section("Selector", selectors()))
+            (section("MultiSelector", multi_selectors()))
             (section("Item", items()))
             (section("Submit", html! {
                 (button(&ButtonProps { label: s("Send signals"), variant: s("primary"),

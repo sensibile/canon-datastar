@@ -32,7 +32,7 @@ var priceGroup = canon.InputGroupProps{ID: "price", Label: "Price", Description:
 templ formsPage() {
 	<h1>Forms</h1>
 	<p class="demo-lead">Server-rendered controls bound to Datastar signals; static/canon.js adds counters, drafts, stepping, dragging and file checks.</p>
-	<div data-signals="{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', agree: false}">
+	<div data-signals="{bio: 'Writes Go and Rust.', qty: 3, amount: '1234.5', price: 1200, volume: 40, low: 20, high: 80, plan: 'pro', fruit: 'banana', region: '', fruits: ['apple', 'fig'], tags: [], agree: false}">
 		@demoSection("TextArea") {
 			<div class="demo-grid">
 				@canon.TextArea(canon.TextAreaProps{ID: "bio", Label: "Bio", Value: "Writes Go and Rust.", MaxLength: 40,
@@ -105,6 +105,34 @@ templ formsPage() {
 					Accept: ".pdf,.txt"})
 				@canon.FileInput(canon.FileInputProps{Label: "Uploading", IsLoading: true})
 			</div>
+		}
+		@demoSection("Selector") {
+			<div class="demo-grid">
+				@canon.Selector(canon.SelectorProps{ID: "fruit", Label: "Fruit", Options: fruitOptions(), Value: "banana", HasClear: true,
+					Description: "Type a letter to jump", ValueAttrs: []canon.Attr{canon.A("data-bind:fruit", "")}})
+				@canon.Selector(canon.SelectorProps{ID: "region", Label: "Region", Options: regionOptions(), HasSearch: true,
+					Placeholder: "Pick a region", StartIcon: "search", ValueAttrs: []canon.Attr{canon.A("data-bind:region", "")}})
+				@canon.Selector(canon.SelectorProps{ID: "sort", Label: "Sort", Options: fruitOptions(), Variant: "secondary", Size: "sm",
+					IndicatorPosition: "start", Status: &canon.FieldStatus{Type: "warning", Message: "Detached for this variant"}})
+				@canon.Selector(canon.SelectorProps{ID: "locked", Label: "Read only", Options: fruitOptions(), Value: "fig", IsReadOnly: true})
+				@canon.Selector(canon.SelectorProps{ID: "off", Label: "Disabled", Options: fruitOptions(), IsDisabled: true,
+					Status: &canon.FieldStatus{Type: "error", Message: "Pick a fruit"}})
+			</div>
+			<p class="demo-panel">fruit: <span data-text="$fruit"></span> · region: <span data-text="$region"></span> · <button type="button" data-on:click="$fruit = 'grape'">Set fruit to grape</button></p>
+		}
+		@demoSection("MultiSelector") {
+			<div class="demo-grid">
+				@canon.MultiSelector(canon.MultiSelectorProps{ID: "fruits", Label: "Fruits", Options: fruitOptions(), Value: []string{"apple", "fig"},
+					HasClear: true, HasSelectAll: true, TriggerDisplay: "labels", Description: "The list stays open while you toggle",
+					ValueAttrs: []canon.Attr{canon.A("data-bind:fruits", "")}})
+				@canon.MultiSelector(canon.MultiSelectorProps{ID: "tags", Label: "Regions", Options: regionOptions(), HasSearch: true,
+					HasCreate: true, HasSelectAll: true, TriggerDisplay: "badges", MaxBadges: 2, Placeholder: "Any region",
+					ValueAttrs: []canon.Attr{canon.A("data-bind:tags", "")}})
+				@canon.MultiSelector(canon.MultiSelectorProps{ID: "count", Label: "Count", Options: fruitOptions(), Value: []string{"banana", "cherry"},
+					Variant: "secondary", Size: "sm", IndicatorPosition: "end"})
+				@canon.MultiSelector(canon.MultiSelectorProps{ID: "mlocked", Label: "Read only", Options: fruitOptions(), Value: []string{"fig"}, IsReadOnly: true})
+			</div>
+			<p class="demo-panel">fruits: <span data-text="JSON.stringify($fruits)"></span> · tags: <span data-text="JSON.stringify($tags)"></span> · <button type="button" data-on:click="$fruits = ['grape', 'banana']">Set fruits</button></p>
 		}
 		@demoSection("Item") {
 			<div class="demo-grid">

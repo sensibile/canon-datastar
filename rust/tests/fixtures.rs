@@ -2596,3 +2596,299 @@ fn file_input_fixtures() {
         ],
     );
 }
+
+#[test]
+fn selector_fixtures() {
+    let opts = vec![
+        SelectorOption {
+            description: s("Crisp"),
+            icon: s("check"),
+            ..SelectorOption::new("a", "Apple")
+        },
+        SelectorOption {
+            value: s("b"),
+            ..Default::default()
+        },
+        SelectorOption {
+            is_disabled: true,
+            ..SelectorOption::new("c", "Cherry")
+        },
+    ];
+    let sections = vec![
+        selector_section(
+            "Fruit",
+            vec![
+                SelectorOption::new("a", "Apple"),
+                SelectorOption::new("b", "Banana"),
+            ],
+        ),
+        selector_divider(),
+        selector_section("", vec![SelectorOption::new("x", "Other")]),
+        SelectorOption::new("z", "Zed"),
+    ];
+    let g = InputGroupProps {
+        id: s("grp"),
+        label: s("Group"),
+        size: s("sm"),
+        ..Default::default()
+    };
+    let gd = InputGroupProps {
+        id: s("grpd"),
+        label: s("Group"),
+        is_disabled: true,
+        ..Default::default()
+    };
+    check(
+        "selector",
+        vec![
+            (
+                "default",
+                selector(&SelectorProps {
+                    label: s("Fruit"),
+                    options: opts.clone(),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "full",
+                selector(&SelectorProps {
+                    id: s("f"),
+                    label: s("Fruit"),
+                    options: opts.clone(),
+                    value: s("a"),
+                    has_clear: true,
+                    description: s("Pick one"),
+                    is_required: true,
+                    status: Some(FieldStatus::new("error", "Bad")),
+                    size: s("lg"),
+                    placeholder: s("Choose"),
+                    width: s("300px"),
+                    indicator_position: s("start"),
+                    placement: s("above"),
+                    is_default_open: true,
+                    is_loading: true,
+                    name: s("fruit"),
+                    form: s("frm"),
+                    class: s("c"),
+                    control_class: s("cc"),
+                    attrs: vec![a("data-x", "1")],
+                    trigger_attrs: vec![a("data-t", "1")],
+                    value_attrs: vec![a("data-bind:fruit", "")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "search-sections",
+                selector(&SelectorProps {
+                    id: s("s"),
+                    label: s("Region"),
+                    options: sections,
+                    has_search: true,
+                    start_icon: s("search"),
+                    search_placeholder: s("Find"),
+                    empty_text: s("Nothing"),
+                    empty_search_text: s("No match"),
+                    variant: s("secondary"),
+                    status: Some(FieldStatus::new("warning", "Slow")),
+                    is_optional: true,
+                    is_required: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "read-only",
+                selector(&SelectorProps {
+                    id: s("r"),
+                    label: s("Locked"),
+                    options: opts.clone(),
+                    value: s("b"),
+                    is_read_only: true,
+                    has_clear: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled-empty",
+                selector(&SelectorProps {
+                    id: s("d"),
+                    label: s("Off"),
+                    is_disabled: true,
+                    name: s("off"),
+                    variant: s("ghost"),
+                    status: Some(FieldStatus::new("error", "")),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "group",
+                input_group(
+                    &g,
+                    selector(&SelectorProps {
+                        id: s("gs"),
+                        label: s("Unit"),
+                        options: opts.clone(),
+                        group: g.member(),
+                        ..Default::default()
+                    }),
+                ),
+            ),
+            (
+                "group-disabled",
+                input_group(
+                    &gd,
+                    selector(&SelectorProps {
+                        id: s("gd"),
+                        label: s("Unit"),
+                        options: opts,
+                        value: s("a"),
+                        name: s("unit"),
+                        group: gd.member(),
+                        ..Default::default()
+                    }),
+                ),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn multi_selector_fixtures() {
+    let opts = vec![
+        SelectorOption {
+            description: s("Crisp"),
+            ..SelectorOption::new("a", "Apple")
+        },
+        SelectorOption::new("b", "Banana"),
+        SelectorOption {
+            is_disabled: true,
+            ..SelectorOption::new("c", "Cherry")
+        },
+        selector_divider(),
+        selector_section(
+            "More",
+            vec![
+                SelectorOption::new("d", "Date"),
+                SelectorOption::new("e", "Elder"),
+            ],
+        ),
+    ];
+    let vals = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+    let g = InputGroupProps {
+        id: s("grp"),
+        label: s("Group"),
+        ..Default::default()
+    };
+    let gd = InputGroupProps {
+        id: s("grpd"),
+        label: s("Group"),
+        is_disabled: true,
+        ..Default::default()
+    };
+    check(
+        "multiselector",
+        vec![
+            (
+                "default",
+                multi_selector(&MultiSelectorProps {
+                    label: s("Fruit"),
+                    options: opts.clone(),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "labels",
+                multi_selector(&MultiSelectorProps {
+                    id: s("m"),
+                    label: s("Fruit"),
+                    options: opts.clone(),
+                    value: vals(&["a", "b", "d", "zz"]),
+                    trigger_display: s("labels"),
+                    has_clear: true,
+                    has_select_all: true,
+                    select_all_label: s("All"),
+                    name: s("fruit"),
+                    form: s("frm"),
+                    value_attrs: vec![a("data-bind:fruits", "")],
+                    indicator_position: s("end"),
+                    size: s("sm"),
+                    is_required: true,
+                    description: s("Pick some"),
+                    status: Some(FieldStatus::new("error", "Bad")),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "badges",
+                multi_selector(&MultiSelectorProps {
+                    id: s("b"),
+                    label: s("Tags"),
+                    options: opts.clone(),
+                    value: vals(&["a", "b", "d", "e"]),
+                    trigger_display: s("badges"),
+                    max_badges: 2,
+                    has_search: true,
+                    has_create: true,
+                    has_select_all: true,
+                    start_icon: s("search"),
+                    variant: s("secondary"),
+                    placeholder: s("Any"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "count-all",
+                multi_selector(&MultiSelectorProps {
+                    id: s("c"),
+                    label: s("Count"),
+                    options: opts.clone(),
+                    value: vals(&["a", "b", "d", "e"]),
+                    has_select_all: true,
+                    is_read_only: true,
+                    has_clear: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled",
+                multi_selector(&MultiSelectorProps {
+                    id: s("d"),
+                    label: s("Off"),
+                    options: opts.clone(),
+                    value: vals(&["a"]),
+                    is_disabled: true,
+                    name: s("off"),
+                    trigger_display: s("badges"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "group",
+                input_group(
+                    &g,
+                    multi_selector(&MultiSelectorProps {
+                        id: s("gm"),
+                        label: s("Unit"),
+                        options: opts.clone(),
+                        group: g.member(),
+                        ..Default::default()
+                    }),
+                ),
+            ),
+            (
+                "group-disabled",
+                input_group(
+                    &gd,
+                    multi_selector(&MultiSelectorProps {
+                        id: s("gmd"),
+                        label: s("Unit"),
+                        options: opts,
+                        value: vals(&["a"]),
+                        name: s("units"),
+                        group: gd.member(),
+                        ..Default::default()
+                    }),
+                ),
+            ),
+        ],
+    );
+}
