@@ -618,7 +618,8 @@ doc.addEventListener('keydown', (e) => {
     // Not when focus is in a modal dialog opened above it: that dialog gets the Escape.
     if (
       top?.matches('.astryx-popover[popover="manual"]:not([data-no-escape-dismiss])') &&
-      !inForeground(t, top)
+      !inForeground(t, top) &&
+      !searchTakesEscape(t)
     ) {
       e.preventDefault();
       safeHide(top);
@@ -3036,6 +3037,12 @@ function wireSelector(ctl) {
 // the server patches in once its data-query matches the query. Rows are reached with
 // aria-activedescendant, so focus stays in the input.
 
+/** A Typeahead or Tokenizer input with a search pending or being edited uses Escape itself. */
+function searchTakesEscape(t) {
+  if (!t.matches('.astryx-search-input')) return false;
+  const st = taCtl(t)?._canonTa;
+  return !!st && (st.want || st.editing);
+}
 const taCtl = (t) => (t instanceof Element ? t.closest('.astryx-search-control') : null);
 function taParts(ctl) {
   const input = ctl.querySelector('.astryx-search-input');
@@ -3232,11 +3239,15 @@ function renderTypeahead(ctl) {
   const value = hidden.value;
   // The label: a picked row's, a remembered pick's, the server's for its value, else the id.
   let label = value;
+  // A data-label we didn't write came from the server (a patch) for the current value.
+  const given = hidden.dataset.label;
+  if (value !== '' && given && given !== s.wroteLabel) s.labels.set(value, given);
   if (value !== '') {
     const row = taRows(ctl).find((r) => r.dataset.id === value);
     label = s.labels.get(value) ?? (row ? taRowLabel(row) : value);
   }
   attrTo(hidden, 'data-label', label);
+  s.wroteLabel = label;
   const showToken = value !== '' && !s.editing;
   const wrap = ctl.querySelector('.astryx-typeahead-token');
   if (wrap && wrap.hidden !== !showToken) wrap.hidden = !showToken;
@@ -3615,6 +3626,11 @@ function wireSearch(ctl) {
       renderTypeahead(ctl);
       if (focused && hidden.value !== '') ctl.querySelector('.astryx-typeahead-token .astryx-token-inner')?.focus();
     });
+    // A server patch can rewrite the value and data-label attributes without the setter.
+    if (!hidden._canonObserved) {
+      hidden._canonObserved = true;
+      new MutationObserver(() => renderTypeahead(ctl)).observe(hidden, { attributes: true, attributeFilter: ['value', 'data-label'] });
+    }
   }
   if (popup && !popup._canonObserved) {
     popup._canonObserved = true;
