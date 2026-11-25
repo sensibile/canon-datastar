@@ -2892,3 +2892,215 @@ fn multi_selector_fixtures() {
         ],
     );
 }
+
+#[test]
+fn typeahead_fixtures() {
+    let items = vec![
+        TypeaheadItem {
+            description: s("Analyst"),
+            keywords: vec![s("math"), s("engine")],
+            ..TypeaheadItem::new("ada", "Ada Lovelace")
+        },
+        TypeaheadItem {
+            icon: s("check"),
+            ..TypeaheadItem::new("alan", "Alan Turing")
+        },
+        TypeaheadItem::new("grace", ""),
+    ];
+    let g = InputGroupProps {
+        id: s("grp"),
+        label: s("Group"),
+        size: s("sm"),
+        ..Default::default()
+    };
+    let gd = InputGroupProps {
+        id: s("grpd"),
+        label: s("Group"),
+        is_disabled: true,
+        ..Default::default()
+    };
+    check(
+        "typeahead",
+        vec![
+            (
+                "default",
+                typeahead(&TypeaheadProps {
+                    label: s("Person"),
+                    items: items.clone(),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "full",
+                typeahead(&TypeaheadProps {
+                    id: s("p"),
+                    label: s("Person"),
+                    items: items.clone(),
+                    value: s("alan"),
+                    placeholder: s("Find"),
+                    has_entries_on_focus: true,
+                    max_menu_items: 5,
+                    min_query_length: 2,
+                    empty_search_text: s("Nobody"),
+                    description: s("Pick one"),
+                    is_required: true,
+                    status: Some(FieldStatus::new("error", "Bad")),
+                    size: s("lg"),
+                    start_icon: s("search"),
+                    width: s("300px"),
+                    name: s("person"),
+                    form: s("frm"),
+                    class: s("c"),
+                    control_class: s("cc"),
+                    attrs: vec![a("data-x", "1")],
+                    input_attrs: vec![a("data-i", "1")],
+                    value_attrs: vec![a("data-bind:person", "")],
+                    has_auto_focus: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "remote",
+                typeahead(&TypeaheadProps {
+                    id: s("r"),
+                    label: s("Remote"),
+                    is_remote: true,
+                    debounce_ms: 300,
+                    value: s("x9"),
+                    value_label: s("Xavier"),
+                    no_clear: true,
+                    status_variant: s("detached"),
+                    status: Some(FieldStatus::new("warning", "Slow")),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled",
+                typeahead(&TypeaheadProps {
+                    id: s("d"),
+                    label: s("Off"),
+                    items: items.clone(),
+                    value: s("ada"),
+                    is_disabled: true,
+                    name: s("off"),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "group",
+                input_group(
+                    &g,
+                    typeahead(&TypeaheadProps {
+                        id: s("gt"),
+                        label: s("Who"),
+                        items: items.clone(),
+                        group: g.member(),
+                        attrs: vec![(s("data-on:astryx-search"), s("@get('/s')"))],
+                        ..Default::default()
+                    }),
+                ),
+            ),
+            (
+                "group-disabled",
+                input_group(
+                    &gd,
+                    typeahead(&TypeaheadProps {
+                        id: s("gtd"),
+                        label: s("Who"),
+                        items: items.clone(),
+                        name: s("who"),
+                        value: s("ada"),
+                        group: gd.member(),
+                        ..Default::default()
+                    }),
+                ),
+            ),
+            (
+                "results",
+                typeahead_results(&TypeaheadResultsProps {
+                    id: s("r"),
+                    query: s("a\"b"),
+                    items: items.clone(),
+                }),
+            ),
+        ],
+    );
+    check(
+        "tokenizer",
+        vec![
+            (
+                "default",
+                tokenizer(&TokenizerProps {
+                    label: s("People"),
+                    items: items.clone(),
+                    ..Default::default()
+                }),
+            ),
+            (
+                "full",
+                tokenizer(&TokenizerProps {
+                    id: s("t"),
+                    label: s("People"),
+                    items: items.clone(),
+                    value: vec![
+                        TypeaheadItem::new("alan", "Alan Turing"),
+                        TypeaheadItem::new("zed", "Zed"),
+                    ],
+                    max_entries: 3,
+                    has_create: true,
+                    has_clear: true,
+                    menu_width: s("320px"),
+                    has_entries_on_focus: true,
+                    size: s("sm"),
+                    description: s("Add people"),
+                    status: Some(FieldStatus::new("success", "Good")),
+                    start_icon: s("search"),
+                    name: s("people"),
+                    form: s("frm"),
+                    value_attrs: vec![a("data-bind:people", "")],
+                    input_attrs: vec![a("data-i", "1")],
+                    is_optional: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "at-max",
+                tokenizer(&TokenizerProps {
+                    id: s("m"),
+                    label: s("Max"),
+                    is_remote: true,
+                    max_entries: 1,
+                    value: vec![TypeaheadItem::new("one", "")],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "disabled",
+                tokenizer(&TokenizerProps {
+                    id: s("d"),
+                    label: s("Off"),
+                    items: items.clone(),
+                    is_disabled: true,
+                    name: s("off"),
+                    value: vec![TypeaheadItem::new("ada", "Ada Lovelace")],
+                    has_clear: true,
+                    ..Default::default()
+                }),
+            ),
+            (
+                "group",
+                input_group(
+                    &g,
+                    tokenizer(&TokenizerProps {
+                        id: s("gk"),
+                        label: s("Tags"),
+                        items,
+                        group: g.member(),
+                        attrs: vec![(s("data-x"), s("1"))],
+                        ..Default::default()
+                    }),
+                ),
+            ),
+        ],
+    );
+}

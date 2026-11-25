@@ -34,6 +34,7 @@
 @import './components/slider.css';
 @import './components/file-input.css';
 @import './components/selector.css';
+@import './components/typeahead.css';
 @import './components/layer.css';
 @import './components/tooltip.css';
 @import './components/popover.css';

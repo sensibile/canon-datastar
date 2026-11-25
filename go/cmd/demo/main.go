@@ -56,6 +56,17 @@ func main() {
 			log.Print(err)
 		}
 	})
+	// Typeahead/Tokenizer remote search: answer with the results for the query (after a short
+	// delay, to show the loading state).
+	mux.HandleFunc("GET /demo/search", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query().Get("q")
+		time.Sleep(200 * time.Millisecond)
+		results := canon.TypeaheadResults(canon.TypeaheadResultsProps{ID: r.URL.Query().Get("id"), Query: q,
+			Items: searchCities(q)})
+		if err := datastar.NewSSE(w, r).PatchElementTempl(results); err != nil {
+			log.Print(err)
+		}
+	})
 	// ProgressBar over SSE: patch the bar as the "upload" advances; Datastar morphs it in place.
 	mux.HandleFunc("POST /demo/progress", func(w http.ResponseWriter, r *http.Request) {
 		sse := datastar.NewSSE(w, r)
