@@ -1,9 +1,9 @@
 // canon.js: client behaviour for canon-datastar components: overlays (Tooltip, InfoTip, Popover,
 // Dialog, DropdownMenu, TabList, Toast), content (Collapsible, Banner, Avatar, Token,
 // MetadataList, Thumbnail, Kbd, Timestamp) and forms (TextArea, Item, CheckboxList, RadioList,
-// NumberInput, Slider, FileInput, Selector, MultiSelector, Typeahead, Tokenizer). It imports
-// ./number-parser.js, so serve both. Ports the interaction logic of Astryx (packages/core/src),
-// MIT, Meta Platforms, Inc.
+// NumberInput, Slider, FileInput, Selector, MultiSelector, Typeahead, Tokenizer, Calendar). It
+// imports ./number-parser.js and ./date-utils.js, so serve all three. Ports the interaction
+// logic of Astryx (packages/core/src), MIT, Meta Platforms, Inc.
 //
 // Load it before Datastar so Datastar expressions can call window.canon:
 //   <script type="module" src="/static/canon.js"></script>
@@ -16,6 +16,7 @@
 // Datastar SSE work without any setup.
 
 import { formatEditableNumber, getNumberInputRejection, parseNumberInput, resolveNumberInputCommit } from './number-parser.js';
+import * as D from './date-utils.js';
 
 const doc = document;
 const GAP = 4;
@@ -1450,6 +1451,14 @@ doc.addEventListener('reset', (e) => {
       restoreDefault(hidden);
       renderTypeahead(ctl);
       notify(hidden);
+    }
+    for (const cal of doc.querySelectorAll('.astryx-calendar')) {
+      const hs = calHiddens(cal);
+      if (hs[0]?.form !== form) continue;
+      calState(cal).rangeStart = null;
+      const changed = hs.filter(restoreDefault);
+      renderCalendar(cal);
+      for (const h of changed) notify(h);
     }
     for (const ctl of doc.querySelectorAll('.astryx-slider-control')) {
       const hiddens = sliderHiddens(ctl);
@@ -3648,6 +3657,577 @@ function wireSearch(ctl) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Calendar: the server renders the frame and the settings; the month grids are drawn here, with
+// the browser's today and Intl names. Day buttons form an APG grid with a roving tab stop. The
+// value lives in hidden inputs (one for a single date, start and end for a range).
+
+const calParts = (cal) => ({
+  months: cal.querySelector(':scope > .astryx-calendar-months'),
+  label: cal.querySelector(':scope > .astryx-calendar-header > .astryx-calendar-label'),
+  prev: cal.querySelector(':scope > .astryx-calendar-header > [data-nav="prev"]'),
+  next: cal.querySelector(':scope > .astryx-calendar-header > [data-nav="next"]'),
+  live: cal.querySelector('.astryx-calendar-live'),
+  value: cal.querySelector(':scope > .astryx-calendar-value'),
+  start: cal.querySelector(':scope > .astryx-calendar-start'),
+  end: cal.querySelector(':scope > .astryx-calendar-end'),
+});
+const calHiddens = (cal) => [...cal.querySelectorAll(':scope > .astryx-calendar-value, :scope > .astryx-calendar-start, :scope > .astryx-calendar-end')];
+
+function calState(cal) {
+  cal._canonCal ??= { focus: null, focusAttr: undefined, rangeStart: null, hovered: null, label: null };
+  return cal._canonCal;
+}
+
+/** The settings, read from the root's data attributes. */
+function calConfig(cal) {
+  const d = cal.dataset;
+  const span = (v) => (Number(v) > 0 ? Number(v) : null);
+  return {
+    range: d.mode === 'range',
+    months: d.months === '2' ? 2 : 1,
+    locale: d.locale || 'en-US',
+    weekStartsOn: Math.min(6, Math.max(0, Number(d.weekStartsOn) || 0)),
+    min: D.fromISO(d.min),
+    max: D.fromISO(d.max),
+    disabledDates: new Set((d.disabledDates ?? '').split(/\s+/).filter(Boolean)),
+    disabledDays: new Set((d.disabledDays ?? '').split(/\s+/).filter(Boolean).map(Number)),
+    maxSpan: span(d.maxSpan),
+    minSpan: span(d.minSpan),
+    outsideDays: !cal.hasAttribute('data-no-outside-days'),
+    weekNumbers: cal.hasAttribute('data-week-numbers'),
+    variableRows: cal.hasAttribute('data-variable-rows'),
+  };
+}
+
+/** The committed value: {single} or {start, end} as dates (null when unset or invalid). */
+function calValue(cal) {
+  const { value, start, end } = calParts(cal);
+  if (value) return { single: D.fromISO(value.value) };
+  const s = D.fromISO(start?.value);
+  const e = D.fromISO(end?.value);
+  return s && e ? { start: D.isAfter(s, e) ? e : s, end: D.isAfter(s, e) ? s : e } : { start: null, end: null };
+}
+
+/** Whether a day can't be picked: bounds, disabled dates and days, and the span from a range's start. */
+function calIsDisabled(cfg, anchor, pd) {
+  if (cfg.min && D.isBefore(pd, cfg.min)) return true;
+  if (cfg.max && D.isAfter(pd, cfg.max)) return true;
+  if (anchor) {
+    // Spans count both ends, so the reach from the anchor is span - 1 days either way.
+    const distance = Math.abs(D.diffDays(anchor, pd));
+    if (cfg.maxSpan != null && distance > cfg.maxSpan - 1) return true;
+    if (cfg.minSpan != null && distance > 0 && distance < cfg.minSpan - 1) return true;
+  }
+  return cfg.disabledDates.has(D.toISO(pd)) || cfg.disabledDays.has(D.dayOfWeek(pd));
+}
+
+/** The first pane's month and the months shown. */
+function calMonths(cal, cfg) {
+  const s = calState(cal);
+  // A changed data-focus-date (first render, or a patch) moves the calendar.
+  const attr = cal.dataset.focusDate ?? '';
+  if (attr !== s.focusAttr) {
+    s.focusAttr = attr;
+    const pd = D.fromISO(attr);
+    if (pd) s.focus = pd;
+  }
+  if (!s.focus) {
+    const v = calValue(cal);
+    s.focus = D.initialFocusDate({ value: v.single ?? v.start, min: cfg.min, max: cfg.max, months: cfg.months, today: D.today() });
+  }
+  const base = D.monthOf(s.focus);
+  return Array.from({ length: cfg.months }, (_, i) => D.addMonthsToMonth(base, i));
+}
+
+const calDayLabel = (pd, locale) => D.formatDate(pd, D.DATE_WITH_WEEKDAY, locale);
+
+/** Builds the month grids (when the months or the layout settings changed). */
+function calBuild(cal, cfg, months) {
+  const { months: box } = calParts(cal);
+  const key = [D.toISO(months[0].start), cfg.months, cfg.locale, cfg.weekStartsOn, cfg.outsideDays, cfg.weekNumbers, cfg.variableRows, cfg.range].join('|');
+  if (box._canonKey === key && box.children.length === months.length) return false;
+  box._canonKey = key;
+  const make = (tag, cls, attrs = {}) => {
+    const e = doc.createElement(tag);
+    if (cls) e.className = cls;
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  };
+  const headers = D.weekdayHeaders(cfg.locale, cfg.weekStartsOn);
+  const out = months.map((month) => {
+    const wrap = make('div', 'astryx-calendar-month');
+    const grid = make('div', 'astryx-calendar-grid', { role: 'grid', 'aria-label': D.formatMonthYear(month, cfg.locale) });
+    if (cfg.weekNumbers) grid.setAttribute('data-week-numbers', '');
+    if (cfg.range) grid.setAttribute('aria-multiselectable', 'true');
+    const head = make('div', 'astryx-calendar-row', { role: 'row' });
+    if (cfg.weekNumbers) {
+      const h = make('div', 'astryx-calendar-day-name astryx-calendar-week-number-header', { role: 'columnheader' });
+      const name = make('span', 'astryx-visually-hidden');
+      name.textContent = D.weekFieldName(cfg.locale);
+      h.append(name);
+      head.append(h);
+    }
+    for (const name of headers) {
+      const h = make('div', 'astryx-calendar-day-name', { role: 'columnheader' });
+      h.textContent = name;
+      head.append(h);
+    }
+    grid.append(head);
+    for (const week of D.monthWeeks(month, cfg.weekStartsOn, cfg.variableRows)) {
+      const row = make('div', 'astryx-calendar-row', { role: 'row' });
+      if (cfg.weekNumbers) {
+        // ISO weeks are numbered by their Thursday.
+        const first = week[0].date;
+        const thursday = D.addDays(first, (4 - D.dayOfWeek(first) + 7) % 7);
+        const n = make('div', 'astryx-calendar-week-number', { role: 'rowheader' });
+        n.textContent = D.formatNumber(D.weekNumber(thursday), cfg.locale);
+        row.append(n);
+      }
+      for (const day of week) {
+        // An empty placeholder is still a gridcell, so every row keeps seven cells.
+        const cell = make('div', 'astryx-calendar-cell', { role: 'gridcell' });
+        if (!day.isOutside || cfg.outsideDays) {
+          const b = make('button', 'astryx-calendar-day', { type: 'button', 'data-date': day.iso, tabindex: '-1' });
+          if (day.isOutside) b.setAttribute('data-outside', '');
+          b.textContent = D.formatNumber(day.date.day, cfg.locale);
+          cell.append(b);
+        }
+        row.append(cell);
+      }
+      grid.append(row);
+    }
+    wrap.append(grid);
+    return wrap;
+  });
+  box.replaceChildren(...out);
+  return true;
+}
+
+/** Brings the label, the nav buttons, the grids and every day's state up to date. */
+function renderCalendar(cal) {
+  const parts = calParts(cal);
+  if (!parts.months) return;
+  const cfg = calConfig(cal);
+  const s = calState(cal);
+  const months = calMonths(cal, cfg);
+  const built = calBuild(cal, cfg, months);
+  const first = months[0];
+  const last = months.at(-1);
+  // Header.
+  const label = months.map((m) => D.formatMonthYear(m, cfg.locale)).join(' – ');
+  if (parts.label && parts.label.textContent !== label) parts.label.textContent = label;
+  // Announce the shown month when it changes, not on the first render.
+  if (s.label != null && s.label !== label) calAnnounce(cal, label);
+  s.label = label;
+  const canPrev = !cfg.min || D.isBefore(cfg.min, first.start);
+  const canNext = !cfg.max || D.isAfter(cfg.max, last.end);
+  for (const [b, can] of [[parts.prev, canPrev], [parts.next, canNext]]) {
+    if (!b) continue;
+    if (b.disabled !== !can) b.disabled = !can;
+    if (b.hasAttribute('data-disabled') !== !can) b.toggleAttribute('data-disabled', !can);
+  }
+  if (parts.months.hasAttribute('data-pending')) {
+    parts.months.removeAttribute('data-pending');
+    parts.months.removeAttribute('aria-hidden');
+    parts.months.inert = false;
+  }
+  // Day states.
+  const value = calValue(cal);
+  const now = D.today();
+  const anchor = cfg.range && s.rangeStart ? D.fromISO(s.rangeStart) : null;
+  const disabled = (pd) => calIsDisabled(cfg, anchor, pd);
+  let rangeStart = cfg.range ? value.start : null;
+  let rangeEnd = cfg.range ? value.end : null;
+  if (anchor) rangeStart = rangeEnd = anchor;
+  let previewStart = null;
+  let previewEnd = null;
+  const hovered = anchor && s.hovered ? D.fromISO(s.hovered) : null;
+  if (hovered && !D.isEqual(hovered, anchor)) [previewStart, previewEnd] = D.isBefore(hovered, anchor) ? [hovered, anchor] : [anchor, hovered];
+  const inSpan = (pd, a, b) => a != null && b != null && D.isInRange(pd, a, b);
+  // A neighbour continues a band when it's an enabled in-month day inside the span.
+  const continues = (day, a, b) => day != null && !day.isOutside && !disabled(day.date) && inSpan(day.date, a, b);
+  for (const [i, wrap] of [...parts.months.children].entries()) {
+    const month = months[i];
+    const grid = wrap.firstElementChild;
+    if (!month || !grid) continue;
+    let seed = null;
+    let firstEnabled = null;
+    let todayBtn = null;
+    for (const row of grid.querySelectorAll(':scope > [role="row"]')) {
+      const cells = [...row.querySelectorAll(':scope > [role="gridcell"]')];
+      const days = cells.map((c) => {
+        const b = c.querySelector(':scope > button');
+        return b ? { b, date: D.fromISO(b.dataset.date), isOutside: b.hasAttribute('data-outside') } : null;
+      });
+      days.forEach((day, col) => {
+        const cell = cells[col];
+        if (!day) return;
+        const { b, date, isOutside } = day;
+        const isDisabled = disabled(date);
+        const off = isDisabled || isOutside;
+        const isToday = !isOutside && D.isEqual(date, now);
+        const isSelected = !isOutside && !cfg.range && value.single != null && D.isEqual(date, value.single);
+        const isInRange = !isOutside && cfg.range && inSpan(date, rangeStart, rangeEnd);
+        const isRangeStart = !isOutside && cfg.range && rangeStart != null && D.isEqual(date, rangeStart);
+        const isRangeEnd = !isOutside && cfg.range && rangeEnd != null && D.isEqual(date, rangeEnd);
+        const isInPreview = !isOutside && inSpan(date, previewStart, previewEnd);
+        const isPreviewStart = !isOutside && previewStart != null && D.isEqual(date, previewStart);
+        const isPreviewEnd = !isOutside && previewEnd != null && D.isEqual(date, previewEnd);
+        const endpoint = isSelected || isRangeStart || isRangeEnd;
+        const prev = days[col - 1];
+        const next = days[col + 1];
+        // Bands round at their ends, the row's edges and wherever the run breaks.
+        const rangeRound = [
+          isRangeStart || col === 0 || !continues(prev, rangeStart, rangeEnd),
+          isRangeEnd || col === 6 || !continues(next, rangeStart, rangeEnd),
+        ];
+        const previewRound = [
+          isPreviewStart || col === 0 || !continues(prev, previewStart, previewEnd),
+          isPreviewEnd || col === 6 || !continues(next, previewStart, previewEnd),
+        ];
+        calBand(cell, b, 'astryx-calendar-range', isInRange, {
+          'data-round-start': rangeRound[0],
+          'data-round-end': rangeRound[1],
+          'data-inset-start': isRangeStart,
+          'data-inset-end': isRangeEnd || (isRangeStart && rangeRound[1]),
+          'data-start': isRangeStart,
+          'data-end': isRangeEnd,
+        });
+        calBand(cell, b, 'astryx-calendar-range-preview', isInPreview, {
+          'data-round-start': previewRound[0],
+          'data-round-end': previewRound[1],
+          'data-start': isPreviewStart,
+          'data-end': isPreviewEnd,
+        });
+        attrTo(cell, 'aria-selected', isSelected || isInRange ? 'true' : null);
+        const marker = isToday && !isSelected && !isInRange ? 'today-only' : isToday && !isSelected && isInRange ? 'today-in-range' : null;
+        attrTo(b, 'data-selected', endpoint ? '' : null);
+        attrTo(b, 'data-today', isToday ? '' : null);
+        attrTo(b, 'data-disabled', off ? '' : null);
+        attrTo(b, 'data-in-range', isInRange ? '' : null);
+        attrTo(b, 'data-marker', marker);
+        attrTo(b, 'aria-disabled', off ? 'true' : null);
+        attrTo(b, 'aria-current', isToday ? 'date' : null);
+        const dateLabel = calDayLabel(date, cfg.locale);
+        const suffix = isSelected
+          ? ', selected'
+          : isRangeStart && isRangeEnd
+            ? anchor
+              ? ', range start'
+              : ', range start and range end'
+            : isRangeStart
+              ? ', range start'
+              : isRangeEnd
+                ? ', range end'
+                : isInRange
+                  ? ', in range'
+                  : '';
+        attrTo(b, 'aria-label', dateLabel + suffix);
+        if (!off) {
+          if (isSelected && !seed) seed = b;
+          if (isToday) todayBtn = b;
+          firstEnabled ??= b;
+        }
+      });
+    }
+    // The tab stop: the focusable day that holds it, else the selected day, today or the first
+    // enabled day of the month.
+    const buttons = [...grid.querySelectorAll('button[data-date]')];
+    const current = !built && buttons.find((b) => b.tabIndex === 0 && b.getAttribute('aria-disabled') !== 'true');
+    const stop = current || seed || todayBtn || firstEnabled;
+    for (const b of buttons) {
+      const t = b === stop ? '0' : '-1';
+      if (b.getAttribute('tabindex') !== t) b.setAttribute('tabindex', t);
+    }
+  }
+}
+
+/** Adds, updates or removes a cell's range or preview band. */
+function calBand(cell, button, cls, on, flags) {
+  let band = cell.querySelector(`:scope > .${cls}`);
+  if (!on) {
+    band?.remove();
+    return;
+  }
+  if (!band) {
+    band = doc.createElement('div');
+    band.className = cls;
+    cell.insertBefore(band, button);
+  }
+  for (const [k, v] of Object.entries(flags)) attrTo(band, k, v ? '' : null);
+}
+
+function calAnnounce(cal, message) {
+  const { live } = calParts(cal);
+  if (live && live.textContent !== message) live.textContent = message;
+}
+
+/** Shows the months starting at the month of pd, and tells listeners. */
+function calSetFocus(cal, pd) {
+  const s = calState(cal);
+  if (s.focus && D.isEqual(s.focus, pd)) return;
+  s.focus = pd;
+  renderCalendar(cal);
+  cal.dispatchEvent(new CustomEvent('astryx-focus-date', { bubbles: true, detail: { focusDate: D.toISO(pd) } }));
+}
+
+/** Focuses a day once its month is shown: the day, else its month's first enabled day. */
+function calFocusDay(cal, pd) {
+  const iso = D.toISO(pd);
+  const { months } = calParts(cal);
+  const grids = [...(months?.querySelectorAll('.astryx-calendar-grid') ?? [])];
+  const enabled = (g) => [...g.querySelectorAll('button[data-date]:not([data-outside]):not([aria-disabled="true"])')];
+  let target = null;
+  for (const g of grids) {
+    const list = enabled(g);
+    const hit = list.find((b) => b.dataset.date === iso);
+    if (hit) target = hit;
+    else if (!target && g.querySelector(`button[data-date="${iso}"]:not([data-outside])`)) target = list[0] ?? null;
+  }
+  if (!target) return;
+  for (const b of target.closest('.astryx-calendar-grid').querySelectorAll('button[data-date]')) attrTo(b, 'tabindex', b === target ? '0' : '-1');
+  target.focus();
+}
+
+/** Moves the focused day (or, with no day, the shown months) by delta units. */
+function calNavigate(cal, delta, focused, offset = 7, unit = 'days') {
+  const cfg = calConfig(cal);
+  const s = calState(cal);
+  const months = calMonths(cal, cfg);
+  const first = months[0];
+  const last = months.at(-1);
+  if (!focused) {
+    const can = delta < 0 ? !cfg.min || D.isBefore(cfg.min, first.start) : !cfg.max || D.isAfter(cfg.max, last.end);
+    if (can) calSetFocus(cal, D.addMonthsToMonth(first, delta).start);
+    return;
+  }
+  const anchor = cfg.range && s.rangeStart ? D.fromISO(s.rangeStart) : null;
+  const disabled = (pd) => calIsDisabled(cfg, anchor, pd);
+  const inRange = (pd) => !(cfg.min && D.isBefore(pd, cfg.min)) && !(cfg.max && D.isAfter(pd, cfg.max));
+  let target = null;
+  if (unit === 'months' || unit === 'years') {
+    // Keep the day of the month, clamped; a month with no enabled day is no target.
+    const candidate = D.addMonths(focused, unit === 'years' ? delta * 12 : delta);
+    if (!inRange(candidate)) return;
+    if (disabled(candidate)) {
+      const month = D.monthOf(candidate);
+      for (let i = 0; i < month.length && !target; i++) {
+        const pd = D.addDays(month.start, i);
+        if (!disabled(pd)) target = pd;
+      }
+      if (!target) return;
+    } else target = candidate;
+  } else {
+    // Walk the arrow's direction to the first enabled day, up to a year away.
+    const step = delta * offset;
+    let candidate = D.addDays(focused, step);
+    while (Math.abs(D.diffDays(focused, candidate)) <= 366) {
+      if (!inRange(candidate)) return;
+      if (!disabled(candidate)) {
+        target = candidate;
+        break;
+      }
+      candidate = D.addDays(candidate, step);
+    }
+    if (!target) return;
+  }
+  // The months move only when the target's month isn't shown, by the least they can.
+  const before = D.isBefore(target, first.start);
+  if (before || D.isAfter(target, last.end)) {
+    const tm = D.monthOf(target);
+    calSetFocus(cal, before ? tm.start : D.addMonthsToMonth(tm, -(cfg.months - 1)).start);
+  }
+  calFocusDay(cal, target);
+}
+
+function calSetHidden(h, value) {
+  if (!h || nativeValue.get.call(h) === value) return false;
+  nativeValue.set.call(h, value);
+  return true;
+}
+function calNotify(...hs) {
+  for (const h of hs) {
+    h.dispatchEvent(new Event('input', { bubbles: true }));
+    h.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+
+function calPick(cal, pd) {
+  const cfg = calConfig(cal);
+  const s = calState(cal);
+  const iso = D.toISO(pd);
+  const parts = calParts(cal);
+  if (!cfg.range) {
+    if (calSetHidden(parts.value, iso)) {
+      renderCalendar(cal);
+      calNotify(parts.value);
+    }
+    return;
+  }
+  const say = (d) => calDayLabel(d, cfg.locale);
+  if (s.rangeStart == null) {
+    // The grid doesn't move, so say the range's progress out loud.
+    s.rangeStart = iso;
+    renderCalendar(cal);
+    calAnnounce(cal, `Start date ${say(pd)}. Select an end date.`);
+    return;
+  }
+  const startPd = D.fromISO(s.rangeStart);
+  // Picking the start again with a minimum span over one day cancels it, so it can move.
+  if (D.isEqual(pd, startPd) && (cfg.minSpan ?? 1) > 1) {
+    s.rangeStart = null;
+    s.hovered = null;
+    renderCalendar(cal);
+    calAnnounce(cal, `Cleared start date ${say(pd)}. Select a start date.`);
+    return;
+  }
+  const [a, b] = D.isBefore(pd, startPd) ? [pd, startPd] : [startPd, pd];
+  s.rangeStart = null;
+  s.hovered = null;
+  const changed = [calSetHidden(parts.start, D.toISO(a)) && parts.start, calSetHidden(parts.end, D.toISO(b)) && parts.end].filter(Boolean);
+  renderCalendar(cal);
+  if (changed.length) calNotify(...changed);
+  calAnnounce(cal, `Selected range: ${say(a)} to ${say(b)}.`);
+}
+
+const calOf = (t) => (t instanceof Element ? t.closest('.astryx-calendar') : null);
+
+doc.addEventListener('click', (e) => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  const nav = t.closest('.astryx-calendar-nav');
+  if (nav) {
+    const cal = calOf(nav);
+    if (cal && !nav.disabled) calNavigate(cal, nav.dataset.nav === 'prev' ? -1 : 1);
+    return;
+  }
+  const day = t.closest('.astryx-calendar-day');
+  const cal = day && calOf(day);
+  if (!cal || day.getAttribute('aria-disabled') === 'true') return;
+  calPick(cal, D.fromISO(day.dataset.date));
+});
+
+// The range preview follows the pointer once a start is picked.
+doc.addEventListener('mouseover', (e) => {
+  const day = e.target instanceof Element ? e.target.closest('.astryx-calendar-day') : null;
+  const cal = calOf(e.target);
+  if (!cal || cal.dataset.mode !== 'range') return;
+  const s = calState(cal);
+  const iso = day && day.getAttribute('aria-disabled') !== 'true' ? day.dataset.date : null;
+  if (s.hovered === iso) return;
+  s.hovered = iso;
+  if (s.rangeStart) renderCalendar(cal);
+});
+doc.addEventListener('mouseout', (e) => {
+  const cal = calOf(e.target);
+  if (!cal || cal.contains(e.relatedTarget)) return;
+  const s = calState(cal);
+  if (s.hovered == null) return;
+  s.hovered = null;
+  if (s.rangeStart) renderCalendar(cal);
+});
+
+doc.addEventListener('keydown', (e) => {
+  const t = e.target;
+  const cal = calOf(t);
+  if (!cal) return;
+  const s = calState(cal);
+  // Escape cancels a range in progress.
+  if (e.key === 'Escape' && cal.dataset.mode === 'range' && s.rangeStart != null) {
+    e.preventDefault();
+    e.stopPropagation();
+    s.rangeStart = null;
+    s.hovered = null;
+    renderCalendar(cal);
+    return;
+  }
+  if (!(t instanceof HTMLButtonElement) || !t.matches('.astryx-calendar-day')) return;
+  const grid = t.closest('.astryx-calendar-grid');
+  const cells = [...grid.querySelectorAll('[role="gridcell"]')];
+  const index = cells.findIndex((c) => c.contains(t));
+  if (index < 0) return;
+  const focusable = (c) => c?.querySelector('button:not([aria-disabled="true"])') != null;
+  const find = (from, step) => {
+    for (let i = from; i >= 0 && i < cells.length; i += step) if (focusable(cells[i])) return i;
+    return -1;
+  };
+  const go = (i) => {
+    const b = cells[i].querySelector('button');
+    for (const x of grid.querySelectorAll('button[data-date]')) attrTo(x, 'tabindex', x === b ? '0' : '-1');
+    b.focus();
+  };
+  const focused = D.fromISO(t.dataset.date);
+  const row = Math.floor(index / 7);
+  const rows = Math.ceil(cells.length / 7);
+  let key = e.key;
+  if ((key === 'ArrowLeft' || key === 'ArrowRight') && getComputedStyle(grid).direction === 'rtl') {
+    key = key === 'ArrowLeft' ? 'ArrowRight' : 'ArrowLeft';
+  }
+  let i = -1;
+  switch (key) {
+    case 'ArrowRight':
+      i = find(index + 1, 1);
+      if (i < 0) calNavigate(cal, 1, focused, 1);
+      break;
+    case 'ArrowLeft':
+      i = find(index - 1, -1);
+      if (i < 0) calNavigate(cal, -1, focused, 1);
+      break;
+    case 'ArrowDown':
+      i = row < rows - 1 ? find(index + 7, 7) : -1;
+      if (i < 0) calNavigate(cal, 1, focused, 7);
+      break;
+    case 'ArrowUp':
+      i = row > 0 ? find(index - 7, -7) : -1;
+      if (i < 0) calNavigate(cal, -1, focused, 7);
+      break;
+    case 'Home':
+      i = e.ctrlKey || e.metaKey ? find(0, 1) : find(row * 7, 1);
+      if (!(e.ctrlKey || e.metaKey) && i > row * 7 + 6) i = -1;
+      break;
+    case 'End':
+      i = e.ctrlKey || e.metaKey ? find(cells.length - 1, -1) : find(row * 7 + 6, -1);
+      if (!(e.ctrlKey || e.metaKey) && i < row * 7) i = -1;
+      break;
+    case 'PageUp':
+    case 'PageDown':
+      calNavigate(cal, key === 'PageUp' ? -1 : 1, focused, 1, e.shiftKey ? 'years' : 'months');
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+  e.stopPropagation();
+  if (i >= 0) go(i);
+});
+
+// A clicked or focused day takes the grid's tab stop.
+doc.addEventListener('focusin', (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLButtonElement) || !t.matches('.astryx-calendar-day') || t.getAttribute('aria-disabled') === 'true') return;
+  for (const b of t.closest('.astryx-calendar-grid').querySelectorAll('button[data-date]')) attrTo(b, 'tabindex', b === t ? '0' : '-1');
+});
+
+/** Wire a Calendar once: hidden values Datastar (or a script) can set; draw the months. */
+function wireCalendar(cal) {
+  for (const h of calHiddens(cal)) {
+    h._canonDefault ??= nativeValue.get.call(h);
+    hookValue(h, () => renderCalendar(cal));
+    // A patch can rewrite the value attribute without the setter.
+    if (!h._canonObserved) {
+      h._canonObserved = true;
+      new MutationObserver(() => renderCalendar(cal)).observe(h, { attributes: true, attributeFilter: ['value'] });
+    }
+  }
+  // A patch can change the settings (data-focus-date moves the months).
+  if (!cal._canonObserved) {
+    cal._canonObserved = true;
+    new MutationObserver(() => renderCalendar(cal)).observe(cal, { attributes: true });
+  }
+  renderCalendar(cal);
+}
+
+// ---------------------------------------------------------------------------------------------
 // Wiring markup as it appears (initial page and Datastar patches).
 
 function popoverTrigger(anchor) {
@@ -3704,6 +4284,7 @@ function scan() {
   }
   for (const c of doc.querySelectorAll('.astryx-selector-control')) wireSelector(c);
   for (const c of doc.querySelectorAll('.astryx-search-control')) wireSearch(c);
+  for (const c of doc.querySelectorAll('.astryx-calendar')) wireCalendar(c);
   for (const n of doc.querySelectorAll('.astryx-number-input')) wireNumber(n);
   for (const s of doc.querySelectorAll('.astryx-slider-control')) wireSlider(s);
   for (const f of doc.querySelectorAll('.astryx-file-input')) renderFiles(f);
@@ -3798,6 +4379,12 @@ const canon = {
     if (root) setOpen(root, Boolean(open));
   },
   toast,
+  /** Show a Calendar's months from the month of an ISO date (element or id). */
+  calendarNavigate(target, date) {
+    const cal = resolve(target)?.closest('.astryx-calendar');
+    const pd = D.fromISO(date);
+    if (cal && pd) calSetFocus(cal, pd);
+  },
   /** Re-run wiring now (it also runs on every DOM change). */
   scan,
 };

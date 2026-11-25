@@ -1,0 +1,37 @@
+package main
+
+import "github.com/sensibile/canon-datastar/go/canon"
+
+templ datesIndex(theme string, mode canon.ThemeMode) {
+	@layout("canon-datastar · Dates", theme, mode) {
+		@datesPage()
+	}
+}
+
+templ datesPage() {
+	<h1>Dates</h1>
+	<p class="demo-lead">The server renders each calendar's frame and value; static/canon.js draws the months with the browser's clock and Intl names.</p>
+	<div data-signals="{day: '2026-03-14', from: '2026-03-10', to: '2026-03-20', trip: '', tripEnd: ''}">
+		@demoSection("Calendar") {
+			<div class="demo-grid">
+				@canon.Calendar(canon.CalendarProps{ID: "cal-day", Value: "2026-03-14", HasWeekNumbers: true,
+					ValueAttrs: []canon.Attr{canon.A("data-bind:day", "")}})
+				@canon.Calendar(canon.CalendarProps{ID: "cal-range", Mode: "range", NumberOfMonths: 2, Start: "2026-03-10",
+					End: "2026-03-20", StartValueAttrs: []canon.Attr{canon.A("data-bind:from", "")},
+					EndValueAttrs: []canon.Attr{canon.A("data-bind:to", "")}})
+			</div>
+			<p class="demo-panel">day: <span data-text="$day"></span> · range: <span data-text="$from + ' → ' + $to"></span> · <button type="button" data-on:click="$day = '2026-04-01'">Set day</button></p>
+		}
+		@demoSection("Bounds and locales") {
+			<div class="demo-grid">
+				@canon.Calendar(canon.CalendarProps{ID: "cal-trip", Mode: "range", Min: "2026-03-05", Max: "2026-05-20",
+					DisabledDaysOfWeek: []int{0, 6}, MinRangeSpan: 3, MaxRangeSpan: 10, FocusDate: "2026-03-01",
+					StartValueAttrs: []canon.Attr{canon.A("data-bind:trip", "")}, EndValueAttrs: []canon.Attr{canon.A("data-bind:trip-end", "")}})
+				@canon.Calendar(canon.CalendarProps{ID: "cal-de", Locale: "de-DE", WeekStartsOn: 1, NoOutsideDays: true,
+					HasVariableRowCount: true, FocusDate: "2026-02-01", DisabledDates: []string{"2026-02-16", "2026-02-17"}})
+				@canon.Calendar(canon.CalendarProps{ID: "cal-ko", Locale: "ko-KR", FocusDate: "2026-09-01"})
+			</div>
+			<p class="demo-panel">trip: <span data-text="$trip + ' → ' + $tripEnd"></span> (weekdays only, 3–10 days, Mar 5 – May 20)</p>
+		}
+	</div>
+}

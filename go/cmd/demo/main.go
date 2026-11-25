@@ -44,6 +44,12 @@ func main() {
 			log.Print(err)
 		}
 	})
+	mux.HandleFunc("GET /dates", func(w http.ResponseWriter, r *http.Request) {
+		theme, mode := themeFromQuery(r)
+		if err := datesIndex(theme, mode).Render(r.Context(), w); err != nil {
+			log.Print(err)
+		}
+	})
 	// Forms: echo the signals the page sent, to show what the bound controls hold.
 	mux.HandleFunc("POST /demo/forms", func(w http.ResponseWriter, r *http.Request) {
 		var signals map[string]any
