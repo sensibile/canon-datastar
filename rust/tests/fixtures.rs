@@ -3104,3 +3104,60 @@ fn typeahead_fixtures() {
         ],
     );
 }
+
+#[test]
+fn calendar_fixtures() {
+    check(
+        "calendar",
+        vec![
+            ("default", calendar(&CalendarProps::default())),
+            (
+                "single",
+                calendar(&CalendarProps {
+                    id: s("cal"),
+                    value: s("2026-03-14"),
+                    min: s("2026-01-01"),
+                    max: s("2026-12-31"),
+                    disabled_dates: vec![s("2026-03-17"), s("2026-03-18")],
+                    disabled_days_of_week: vec![0, 6],
+                    week_starts_on: 1,
+                    locale: s("de-DE"),
+                    has_week_numbers: true,
+                    no_outside_days: true,
+                    name: s("day"),
+                    form: s("frm"),
+                    class: s("c"),
+                    attrs: vec![(s("data-x"), s("1"))],
+                    value_attrs: vec![(s("data-bind:day"), s(""))],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "range",
+                calendar(&CalendarProps {
+                    mode: s("range"),
+                    start: s("2026-03-10"),
+                    end: s("2026-03-20"),
+                    number_of_months: 2,
+                    max_range_span: 14,
+                    min_range_span: 3,
+                    focus_date: s("2026-03-01"),
+                    has_variable_row_count: true,
+                    start_name: s("from"),
+                    end_name: s("to"),
+                    start_value_attrs: vec![(s("data-bind:from"), s(""))],
+                    end_value_attrs: vec![(s("data-bind:to"), s(""))],
+                    ..Default::default()
+                }),
+            ),
+            (
+                "range-partial",
+                calendar(&CalendarProps {
+                    mode: s("range"),
+                    start: s("2026-03-10"),
+                    ..Default::default()
+                }),
+            ),
+        ],
+    );
+}

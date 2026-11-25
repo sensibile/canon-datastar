@@ -10,6 +10,7 @@
 mod avatar;
 mod banner;
 mod button;
+mod calendar;
 mod collapsible;
 mod container;
 mod content;
@@ -47,6 +48,7 @@ pub use avatar::{
 };
 pub use banner::{BannerProps, banner};
 pub use button::{ButtonProps, button, icon_button};
+pub use calendar::{CalendarProps, calendar};
 pub use collapsible::{CollapsibleGroupProps, CollapsibleProps, collapsible, collapsible_group};
 pub use container::{
     AspectRatioProps, CardProps, CenterProps, GridAuto, GridProps, GridSpanProps, SectionProps,

@@ -2,6 +2,7 @@
 
 mod components;
 mod content;
+mod dates;
 mod forms;
 mod overlays;
 
@@ -153,6 +154,7 @@ pub(crate) fn layout(title: &str, name: &str, mode: ThemeMode, content: Markup) 
                                 a href="/components" data-attr:href=(nav_expr("/components")) { "Components" } " "
                                 a href="/content" data-attr:href=(nav_expr("/content")) { "Content" } " "
                                 a href="/forms" data-attr:href=(nav_expr("/forms")) { "Forms" } " "
+                                a href="/dates" data-attr:href=(nav_expr("/dates")) { "Dates" } " "
                                 a href="/overlays" data-attr:href=(nav_expr("/overlays")) { "Overlays" }
                             }
                             div.demo-controls {
@@ -253,6 +255,11 @@ async fn components_index(Query(q): Query<ThemeQuery>) -> Markup {
 async fn content_index(Query(q): Query<ThemeQuery>) -> Markup {
     let (name, mode) = theme_from_query(&q);
     layout("canon-datastar · Content", name, mode, content::page())
+}
+
+async fn dates_index(Query(q): Query<ThemeQuery>) -> Markup {
+    let (name, mode) = theme_from_query(&q);
+    layout("canon-datastar · Dates", name, mode, dates::page())
 }
 
 async fn forms_index(Query(q): Query<ThemeQuery>) -> Markup {
@@ -385,6 +392,7 @@ async fn main() {
         .route("/components", get(components_index))
         .route("/content", get(content_index))
         .route("/forms", get(forms_index))
+        .route("/dates", get(dates_index))
         .route("/demo/forms", post(demo_forms))
         .route("/demo/search", get(demo_search))
         .route("/overlays", get(overlays_index))

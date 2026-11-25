@@ -16,6 +16,7 @@ Datastar attributes and signals in the browser, and SSE where the server drives 
 | `css/` | Shared stylesheets: `astryx.css` (reset + tokens + theme scope), `themes/<name>.css` |
 | `static/canon.js` | Client behaviour: overlays, content and form controls, `window.canon` |
 | `static/number-parser.js` | NumberInput's locale number parser (imported by `canon.js`; serve both) |
+| `static/date-utils.js` | Gregorian date helpers for Calendar (imported by `canon.js`; serve it too) |
 | `static/datastar.js` | Datastar client v1.0.5 (MIT, Star Federation), vendored for convenience |
 | `go/canon` | Go package: templ components |
 | `rust/` | Rust crate `canon-datastar`: maud components |
@@ -34,8 +35,8 @@ Link the base stylesheet, every theme you use, `canon.js` and then Datastar:
 <script type="module" src="/canon/static/datastar.js"></script>
 ```
 
-`canon.js` goes first so Datastar expressions can call `canon.*`. It imports `number-parser.js` from
-the same folder. Pages without overlays, interactive content or form controls don't need it.
+`canon.js` goes first so Datastar expressions can call `canon.*`. It imports `number-parser.js` and
+`date-utils.js` from the same folder. Pages without overlays, interactive content or form controls don't need it.
 
 Themes: `neutral`, `butter`, `chocolate`, `matcha`, `stone`, `gothic`, `y2k`. Each theme file
 brings its fonts. Put `data-astryx-theme="<name>"` (and `data-theme="light|dark"`, or nothing to
@@ -185,7 +186,7 @@ content (`tooltip-<slug>`) or fixed (`popover`, `menu`).
 - Form: `Field`, `FieldLabel`, `FieldStatusMessage` / `field_status`, `TextInput`, `TextArea`,
   `NumberInput`, `InputGroup`, `InputGroupText`, `CheckboxInput`, `CheckboxList`, `Switch`, `RadioList`,
   `Slider`, `FileInput`, `Selector` (with `SelectorOption`, `SelectorSection`, `SelectorDivider`),
-  `MultiSelector`, `Typeahead` (with `TypeaheadItem`, `TypeaheadResults`), `Tokenizer`
+  `MultiSelector`, `Typeahead` (with `TypeaheadItem`, `TypeaheadResults`), `Tokenizer`, `Calendar`
 - List: `Item`
 - Overlay: `Tooltip`, `InfoTip`, `Popover`, `Dialog`, `DialogHeader`, `DropdownMenu`,
   `DropdownMenuItem`, `DropdownMenuGroup`, `DropdownMenuDivider`, `TabList` (with `TabProps`),
@@ -205,8 +206,9 @@ checkbox/radio items, tab overflow arrows, toast swipe, Collapsible height anima
 Timestamp hover card with copy buttons, emoji initials in Avatar, `changeAction` on form controls,
 function-valued `formatValue` (use the `Format` JSON options), the Slider touch controller, Selector
 `renderOption`/`renderValue`, MultiSelector option actions and `formatValue`, Typeahead/Tokenizer `renderItem`/`renderToken`,
-custom menus and token overflow. The date and time inputs come next, then the remaining Astryx
-categories.
+custom menus and token overflow, Calendar's `calendar` prop and `dateConstraints` functions (use
+`DisabledDates` and `DisabledDaysOfWeek`). The date and time inputs come next, then the remaining
+Astryx categories.
 
 Selectors keep their value in a hidden element that `data-bind` goes on (`ValueAttrs`): an
 `<input type="hidden">` for `Selector` (a string signal) and a `<select multiple>` for
@@ -221,6 +223,13 @@ query (`data-on:astryx-search="@get('/search?id=city&q=' + encodeURIComponent(ev
 on `Attrs`). A Typeahead's value is the picked item's id in a hidden input (a string signal); a
 Tokenizer's values are the chosen ids in a hidden `<select multiple>` (an array signal, in the order
 they were added). Its `HasCreate` fires `astryx-create` like MultiSelector's.
+
+`Calendar` renders its frame, settings and value on the server; `canon.js` draws the month grids,
+because today and the month and day names come from the browser's clock and `Intl` (`Locale`).
+The value is an ISO date in a hidden input (`ValueAttrs`), or, with `Mode: "range"`, start and
+end in two (`StartValueAttrs`, `EndValueAttrs`). Moving the shown months fires a bubbling
+`astryx-focus-date` event (`evt.detail.focusDate`); `canon.calendarNavigate(el, date)` and a
+patched `FocusDate` move them from outside.
 
 ## Develop
 
