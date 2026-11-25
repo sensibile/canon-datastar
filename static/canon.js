@@ -3048,6 +3048,9 @@ function wireSelector(ctl) {
 
 /** A Typeahead or Tokenizer input with a search pending or being edited uses Escape itself. */
 function searchTakesEscape(t) {
+  // So does a range Calendar with a start picked: Escape cancels the pending range.
+  const cal = t.closest('.astryx-calendar[data-mode="range"]');
+  if (cal && cal._canonCal?.rangeStart != null) return true;
   if (!t.matches('.astryx-search-input')) return false;
   const st = taCtl(t)?._canonTa;
   return !!st && (st.want || st.editing);
@@ -3687,8 +3690,9 @@ function calConfig(cal) {
     months: d.months === '2' ? 2 : 1,
     locale: d.locale || 'en-US',
     weekStartsOn: Math.min(6, Math.max(0, Number(d.weekStartsOn) || 0)),
-    min: D.fromISO(d.min),
-    max: D.fromISO(d.max),
+    // ISO dates run 0001-01-01..9999-12-31; the months never page past them.
+    min: D.fromISO(d.min) ?? { year: 1, month: 1, day: 1 },
+    max: D.fromISO(d.max) ?? { year: 9999, month: 12, day: 31 },
     disabledDates: new Set((d.disabledDates ?? '').split(/\s+/).filter(Boolean)),
     disabledDays: new Set((d.disabledDays ?? '').split(/\s+/).filter(Boolean).map(Number)),
     maxSpan: span(d.maxSpan),
@@ -3786,7 +3790,8 @@ function calBuild(cal, cfg, months) {
       for (const day of week) {
         // An empty placeholder is still a gridcell, so every row keeps seven cells.
         const cell = make('div', 'astryx-calendar-cell', { role: 'gridcell' });
-        if (!day.isOutside || cfg.outsideDays) {
+        // Outside days before 0001 or after 9999 have no ISO date, so they stay empty.
+        if ((!day.isOutside || cfg.outsideDays) && D.fromISO(day.iso)) {
           const b = make('button', 'astryx-calendar-day', { type: 'button', 'data-date': day.iso, tabindex: '-1' });
           if (day.isOutside) b.setAttribute('data-outside', '');
           b.textContent = D.formatNumber(day.date.day, cfg.locale);
@@ -4008,8 +4013,10 @@ function calNavigate(cal, delta, focused, offset = 7, unit = 'days') {
   if (unit === 'months' || unit === 'years') {
     // Keep the day of the month, clamped; a month with no enabled day is no target.
     const candidate = D.addMonths(focused, unit === 'years' ? delta * 12 : delta);
-    if (!inRange(candidate)) return;
-    if (disabled(candidate)) {
+    // A month past the representable years is no target either.
+    if (candidate.year < 1 || candidate.year > 9999) return;
+    // Out of min/max or disabled: the month's first enabled day (min/max count as disabled).
+    if (!inRange(candidate) || disabled(candidate)) {
       const month = D.monthOf(candidate);
       for (let i = 0; i < month.length && !target; i++) {
         const pd = D.addDays(month.start, i);
@@ -4210,13 +4217,20 @@ doc.addEventListener('focusin', (e) => {
 
 /** Wire a Calendar once: hidden values Datastar (or a script) can set; draw the months. */
 function wireCalendar(cal) {
+  // A value set from outside replaces any range in progress (picks set the inputs natively).
+  const external = () => {
+    const s = calState(cal);
+    s.rangeStart = null;
+    s.hovered = null;
+    renderCalendar(cal);
+  };
   for (const h of calHiddens(cal)) {
     h._canonDefault ??= nativeValue.get.call(h);
-    hookValue(h, () => renderCalendar(cal));
+    hookValue(h, external);
     // A patch can rewrite the value attribute without the setter.
     if (!h._canonObserved) {
       h._canonObserved = true;
-      new MutationObserver(() => renderCalendar(cal)).observe(h, { attributes: true, attributeFilter: ['value'] });
+      new MutationObserver(external).observe(h, { attributes: true, attributeFilter: ['value'] });
     }
   }
   // A patch can change the settings (data-focus-date moves the months).
